@@ -77,6 +77,21 @@
     <!-- 2. DASHBOARD SECTION -->
     <div id="dashboard-view" class="hidden max-w-7xl mx-auto space-y-6">
         
+        <!-- Global Booking Switch -->
+        <div class="bg-panel p-4 rounded-xl flex items-center justify-between border border-gray-700">
+            <div>
+                <h3 class="font-bold text-white">Live Booking Status</h3>
+                <p class="text-xs text-gray-400">Turn this off to immediately close ticket sales and hide the seat map from students.</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="booking-status-text" class="text-sm font-bold text-green-400">OPEN</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="booking-status-toggle" class="sr-only peer" checked>
+                  <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                </label>
+            </div>
+        </div>
+
         <!-- Stats Cards -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="bg-panel p-5 rounded-xl border border-green-900/30">
@@ -244,6 +259,10 @@
     "promoCodes": {
       ".read": true,
       ".write": "auth != null"
+    },
+    "settings": {
+      ".read": true,
+      ".write": "auth != null"
     }
   }
 }
@@ -302,6 +321,8 @@
     const errLogin = document.getElementById('login-error');
     const tbody = document.getElementById('bookings-tbody');
     const searchInput = document.getElementById('search-input');
+    const bookingStatusToggle = document.getElementById('booking-status-toggle');
+    const bookingStatusText = document.getElementById('booking-status-text');
 
     // --- Auth Flow ---
     document.getElementById('login-btn').addEventListener('click', async () => {
@@ -363,7 +384,32 @@
             livePromoCodes = snapshot.val() || {};
             renderPromoCodes();
         }, (error) => showFirebaseError(error));
+
+        onValue(ref(db, 'settings/bookingStatus'), (snapshot) => {
+            const status = snapshot.val();
+            if (status === 'closed') {
+                bookingStatusToggle.checked = false;
+                bookingStatusText.textContent = "CLOSED";
+                bookingStatusText.className = "text-sm font-bold text-red-500";
+            } else {
+                bookingStatusToggle.checked = true;
+                bookingStatusText.textContent = "OPEN";
+                bookingStatusText.className = "text-sm font-bold text-green-400";
+            }
+        });
     }
+
+    bookingStatusToggle.addEventListener('change', async (e) => {
+        const isChecked = e.target.checked;
+        const newStatus = isChecked ? 'open' : 'closed';
+        try {
+            await set(ref(db, 'settings/bookingStatus'), newStatus);
+            showToast(`Bookings are now ${newStatus.toUpperCase()}`, 'success');
+        } catch (error) {
+            showFirebaseError(error);
+            e.target.checked = !isChecked; // Revert visually
+        }
+    });
 
     function processTickets() {
         const ticketMap = {};
@@ -380,6 +426,7 @@
                         email: data.email || "N/A",
                         phone: data.phone || "N/A",
                         whatsapp: data.whatsapp || "N/A",
+                        guestNames: data.guestNames || [],
                         department: data.department || "N/A",
                         studentId: data.studentId || "N/A",
                         utr: data.utr || "N/A",
@@ -457,6 +504,11 @@
             if(tk.promoCode && tk.promoCode !== "None") {
                 promoHtml = `<span class="bg-purple-900/40 text-purple-400 text-[10px] px-1 py-0.5 rounded border border-purple-800 ml-1" title="Promo Applied">${tk.promoCode}</span>`;
             }
+            
+            let guestHtml = '';
+            if(tk.guestNames && tk.guestNames.length > 0) {
+                guestHtml = `<div class="text-[10px] text-gray-400 mt-1">Guests: ${tk.guestNames.join(', ')}</div>`;
+            }
 
             let statusBadge = `<span class="status-badge status-pending">Pending</span>`;
             if (tk.checkedIn) {
@@ -492,6 +544,7 @@
                     <div class="text-[11px] text-gray-400 mt-1">${tk.email}</div>
                     <div class="text-[11px] text-gray-400 mt-0.5">Dept: <span class="text-gray-300">${tk.department}</span></div>
                     <div class="text-[11px] text-gray-400 mt-0.5">📞 ${tk.phone} <span class="text-green-500 ml-1" title="WhatsApp">W: ${tk.whatsapp}</span></div>
+                    ${guestHtml}
                 </td>
                 <td class="px-5 py-3">
                     <div class="text-base font-black text-white">${tk.seats.length} <span class="text-[10px] font-normal text-gray-500">seat(s)</span></div>
@@ -598,7 +651,7 @@
         list.innerHTML = '';
         Object.keys(livePromoCodes).forEach(code => {
             const promo = livePromoCodes[code];
-            const limitStr = promo.limit !== undefined ? ` | ${promo.limit} uses left` : ` | Unlimited`;
+            const limitStr = promo.limit !== undefined ? ` | ${promo.limit} uses total` : ` | Unlimited`;
             
             const li = document.createElement('div');
             li.className = "flex justify-between items-center bg-[#111] p-2 rounded border border-gray-800 text-sm";
@@ -718,14 +771,15 @@
     document.getElementById('export-csv-btn').addEventListener('click', () => {
         if (groupedTickets.length === 0) return showToast("No data to export.", "error");
 
-        const headers = ['Ticket ID', 'Booking Date', 'Name', 'Email', 'Phone', 'WhatsApp', 'Department', 'Student ID', 'Seats', 'Amount Paid', 'Promo Code', 'UTR', 'Payee', 'Status', 'Checked In'];
+        const headers = ['Ticket ID', 'Booking Date', 'Name', 'Email', 'Phone', 'WhatsApp', 'Department', 'Student ID', 'Seats', 'Amount Paid', 'Promo Code', 'UTR', 'Payee', 'Status', 'Checked In', 'Guests'];
         
         const rows = groupedTickets.map(tk => [
             tk.ticketId, 
             new Date(tk.timestamp).toLocaleString('en-IN'),
             tk.bookerName, tk.email, tk.phone, tk.whatsapp, tk.department, tk.studentId,
             tk.seats.join('-'), tk.amountPaid, tk.promoCode, tk.utr, tk.payeeUsed,
-            tk.verificationStatus, tk.checkedIn ? 'Yes' : 'No'
+            tk.verificationStatus, tk.checkedIn ? 'Yes' : 'No',
+            tk.guestNames ? tk.guestNames.join(' | ') : ''
         ]);
 
         const csvContent = [
