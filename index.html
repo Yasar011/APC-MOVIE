@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NIFT Movie Night Booking</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- html2canvas for Ticket Downloading -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    /* Global Styles */
+    body {
+        font-family: 'Inter', sans-serif;
+        background-color: #111111;
+        color: #E0E0E0;
+    }
+    .text-movie-accent { color: #f5c518; } /* Cinema Gold */
+    .bg-movie-accent { background-color: #f5c518; }
+    .bg-movie-accent:hover { background-color: #d4a710; }
+    
+    .glass-panel {
+      background: rgba(30, 32, 40, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Original Style Container */
+    .booking-container {
+      background: #1e1e1e;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 560px; /* Matched to original design width */
+      width: 100%;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+      border: 1px solid #333;
+      position: relative;
+    }
+
+    .btn-small-top {
+      position: absolute; top: 16px; padding: 6px 12px;
+      border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
+      background: #333; color: #fff; text-decoration: none; transition: background 0.2s;
+    }
+    .btn-small-top:hover { background: #444; }
+    .btn-help { left: 16px; }
+    .btn-how-to-book { right: 16px; }
+
+    .header-booking { text-align: center; margin-bottom: 24px; padding-top: 24px; }
+    .header-booking h1 { font-size: 28px; font-weight: 800; color: #fff; letter-spacing: -0.5px;}
+    .header-booking p { font-size: 14px; color: #888; margin-top: 4px; letter-spacing: 1px; text-transform: uppercase;}
+
+    .event-card {
+      background: #2a2a2a; border-radius: 8px; padding: 12px 16px;
+      margin-bottom: 20px; display: flex; justify-content: space-between;
+      align-items: center; font-size: 13px; font-weight: 500; border: 1px solid #333;
+    }
+
+    .legend {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; font-size: 11px; margin-bottom: 16px; font-weight: 500;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; color: #aaa; }
+    .legend-color { width: 12px; height: 12px; border-radius: 3px; }
+    
+    .status-available { background: #444; }
+    .status-selected  { background: #f5c518; }
+    .status-occupied  { background: #e62b1e; }
+    .status-reserved  { background: #f39c12; } 
+    .status-held      { background: #8e44ad; } /* Purple for temporarily held by someone else */
+
+    /* Seat Map Styles */
+    .seating-area {
+      background: #2a2a2a; border-radius: 8px; padding: 16px;
+      margin-bottom: 24px; display: flex; justify-content: center; border: 1px solid #333;
+      position: relative;
+    }
+    .auditorium { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+    #seatingChart { width: 100%; max-height: 40vh; overflow-y: auto; overflow-x: auto; padding-right: 5px; padding-bottom: 5px;}
+    
+    .screen {
+      background: #f5c518; color: #000;
+      padding: 8px 12px; border-radius: 4px; text-align: center;
+      font-weight: 800; font-size: 13px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 3px;
+    }
+    .direction { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 8px; color: #888; font-weight: 600;}
+    .direction span { background: #1e1e1e; color: #aaa; padding: 3px 8px; border-radius: 4px; border: 1px solid #333;}
+    
+    .seat-row { display: flex; align-items: center; width: max-content; margin: 0 auto; }
+    .row-label {
+      width: 16px; text-align: right; margin-right: 6px; font-size: 10px; font-weight: 700; color: #888;
+    }
+    .seats { display: flex; flex-wrap: nowrap; }
+    .seat {
+      width: 22px; height: 22px; margin: 1.5px; border-radius: 3px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 600; cursor: pointer;
+      background: #444; color: #ccc; border: 1px solid #555;
+      transition: transform 0.1s, background 0.2s;
+    }
+    .seat:hover:not(.occupied):not(.reserved):not(.held) { transform: scale(1.15); background: #555; z-index: 10; }
+    .seat.selected { background: #f5c518; border-color: #d4a710; color: #000; transform: scale(1.1); font-weight: 800; }
+    .seat.occupied { background: #e62b1e; border-color: #c03b2b; color: #fca5a5; opacity: 0.7; cursor: not-allowed; }
+    .seat.reserved { background: #f39c12; border-color: #d35400; color: #fff; cursor: not-allowed; opacity: 0.8; }
+    .seat.held { background: #8e44ad; border-color: #732d91; color: #e8b0ff; opacity: 0.8; cursor: not-allowed; }
+    
+    .aisle-horizontal { height: 10px; }
+    .aisle-vertical   { width: 10px; }
+
+    @media (max-width: 600px) {
+      .seat { width: 16px; height: 16px; font-size: 7px; margin: 1px; border-radius: 2px; }
+      .row-label { font-size: 8px; margin-right: 4px; }
+      .screen { font-size: 10px; padding: 6px; letter-spacing: 2px; }
+    }
+
+    /* Form Styles */
+    .booking-form {
+      background: #2a2a2a; border-radius: 8px; padding: 20px;
+      border: 1px solid #333;
+    }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display:block; margin-bottom:6px; font-weight: 500; color: #aaa; font-size: 13px;}
+    .form-group input, .form-group select {
+      width:100%; padding: 10px 12px; border-radius: 6px; border: 1px solid #444;
+      background: #1e1e1e; color:#f8fafc; font-size:14px; transition: all 0.2s ease;
+    }
+    .form-group input:focus, .form-group select:focus {
+      outline:none; border-color:#f5c518; box-shadow:0 0 0 2px rgba(245, 197, 24, 0.2);
+    }
+    .form-group input:read-only { background-color: #111; color: #888; cursor: not-allowed; }
+
+    /* Modals */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(4px);
+      display: none; justify-content: center; align-items: center; z-index: 1000;
+    }
+    .payment-qr, .ticket-qr { margin: 15px auto; border-radius: 8px; border: 4px solid #fff; }
+    .payment-qr { width: 160px; height: 160px; }
+    .ticket-qr { width: 200px; height: 200px; }
+    
+    /* View transitions */
+    .view-section { display: none; animation: fadeIn 0.4s ease forwards; }
+    .view-section.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Ticket Card */
+    .ticket-card {
+        background: linear-gradient(145deg, #1e1e1e, #2a2a2a);
+        border: 1px dashed #555;
+        border-radius: 12px;
+        position: relative;
+        overflow: hidden;
+    }
+    .ticket-card::before, .ticket-card::after {
+        content: ''; position: absolute; top: 50%; width: 20px; height: 20px;
+        background-color: #111; border-radius: 50%; transform: translateY(-50%);
+    }
+    .ticket-card::before { left: -10px; }
+    .ticket-card::after { right: -10px; }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { height: 6px; width: 6px; }
+    ::-webkit-scrollbar-track { background: #1e1e1e; border-radius: 4px;}
+    ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #777; }
+  </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col relative overflow-x-hidden">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-50 glass-panel">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center py-4">
+        <a href="#" class="flex items-center space-x-2 flex-shrink-0" onclick="switchView('booking')">
+            <span class="font-black text-2xl text-white">NIFT</span><span class="font-bold text-2xl text-movie-accent">MovieNight</span>
+        </a>
+        <div id="header-auth-buttons" class="flex items-center gap-3 text-sm font-medium">
+            <button id="header-login-btn" onclick="switchView('login')" class="px-4 py-2 bg-movie-accent text-black rounded-md text-xs font-bold hover:bg-yellow-500 transition-colors">Sign In</button>
+            <div id="header-user-info" class="hidden flex items-center gap-3">
+                <span class="hidden md:inline border-r border-gray-600 pr-3 text-gray-400">Logged in as: <span id="header-email" class="text-white"></span></span>
+                <button onclick="switchView('profile')" class="px-4 py-2 bg-[#2a2a2a] hover:bg-movie-accent hover:text-black border border-gray-700 text-white rounded-md text-xs font-bold transition-colors">My Tickets</button>
+                <button id="logout-btn" class="px-4 py-2 bg-gray-800 hover:bg-red-900 border border-gray-700 text-white rounded-md text-xs font-bold transition-colors">Logout</button>
+            </div>
+        </div>
+    </div>
+  </header>
+
+  <main class="flex-grow w-full flex items-start justify-center p-4 md:py-10 relative z-10">
+    
+    <!-- 1. LOGIN / VERIFICATION SECTION -->
+    <div id="login-view" class="view-section w-full max-w-md mx-auto">
+        <div class="booking-container mx-auto">
+            <h2 id="auth-title" class="text-2xl font-bold text-white mb-2 text-center">Student Login</h2>
+            <p id="auth-subtitle" class="text-gray-400 text-center text-sm mb-8">Access restricted to @nift.ac.in emails</p>
+            
+            <div id="auth-form-step">
+                <div class="form-group mb-4">
+                    <label>NIFT Email Address</label>
+                    <input type="email" id="auth-email" placeholder="e.g. name.surname@nift.ac.in" class="w-full">
+                </div>
+                <div class="form-group mb-6">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="mb-0">Password</label>
+                        <button type="button" onclick="showForgotPassword()" class="text-xs text-movie-accent hover:underline">Forgot password?</button>
+                    </div>
+                    <input type="password" id="auth-password" placeholder="••••••••" class="w-full">
+                </div>
+                <button id="auth-action-btn" class="w-full py-3 bg-movie-accent text-black font-bold rounded-lg hover:bg-yellow-500 transition-colors">
+                    Sign In
+                </button>
+                <div class="mt-4 text-center">
+                    <button id="auth-toggle-btn" type="button" class="text-sm text-movie-accent hover:underline bg-transparent border-none cursor-pointer">
+                        Need an account? Sign Up
+                    </button>
+                </div>
+            </div>
+
+            <!-- Forgot Password Step -->
+            <div id="forgot-password-step" class="hidden text-center">
+                <p class="text-sm text-gray-400 mb-6">Enter your NIFT email to receive a password reset link.</p>
+                <div class="form-group mb-4 text-left">
+                    <label>Email Address</label>
+                    <input type="email" id="reset-email" placeholder="e.g. name.surname@nift.ac.in" class="w-full">
+                </div>
+                <button id="send-reset-btn" class="w-full py-3 bg-movie-accent text-black font-bold rounded-lg hover:bg-yellow-500 transition-colors mb-4">
+                    Send Reset Link
+                </button>
+                <button onclick="showAuthForm()" class="text-sm text-gray-500 hover:text-white transition-colors">
+                    Cancel & Back to Login
+                </button>
+            </div>
+
+            <!-- Email Verification Step -->
+            <div id="auth-verify-step" class="hidden text-center">
+                <svg class="w-12 h-12 text-yellow-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                <h4 class="text-lg font-bold text-white mb-2">Verify Your Email</h4>
+                <p class="text-sm text-gray-400 mb-6">We've sent a verification link to your NIFT email. Please check your inbox and click the link to verify your account.</p>
+                
+                <button id="check-verify-btn" class="w-full py-3 mb-3 bg-movie-accent text-black font-bold rounded-lg hover:bg-yellow-500 transition-colors">
+                    I have verified - Continue
+                </button>
+                <button id="resend-verify-btn" class="w-full py-3 mb-3 bg-transparent border border-gray-600 text-gray-300 font-bold rounded-lg hover:bg-gray-800 transition-colors">
+                    Resend Verification Email
+                </button>
+                <button id="cancel-verify-btn" class="text-sm text-gray-500 hover:text-white transition-colors mt-2">
+                    Cancel & Sign Out
+                </button>
+            </div>
+            
+            <div id="login-error" class="mt-4 text-red-400 text-sm text-center font-medium hidden"></div>
+        </div>
+    </div>
+
+    <!-- 2. BOOKING SECTION -->
+    <div id="booking-view" class="view-section active w-full">
+        <div class="booking-container mx-auto">
+            
+            <!-- Top Buttons -->
+            <button class="btn-small-top btn-help" onclick="alert('Contact NIFT IT Support for help.')">Help</button>
+            <button class="btn-small-top btn-how-to-book" onclick="document.getElementById('howToBookModal').style.display='flex'">How to Book</button>
+
+            <!-- Header -->
+            <div class="header-booking">
+                <h1>NIFT <span class="text-movie-accent">Movie Night</span></h1>
+                <p>Exclusive Campus Screening</p>
+            </div>
+
+            <!-- Event Card -->
+            <div class="event-card">
+                <div class="text-gray-300">Auditorium Screening</div>
+                <div class="text-gray-300">6:00 PM</div>
+                <div class="text-movie-accent font-bold">₹<span id="base-price-display">25</span> / Seat</div>
+            </div>
+
+            <!-- Legend -->
+            <div class="legend">
+                <div class="legend-item"><div class="legend-color status-available"></div><span>Available</span></div>
+                <div class="legend-item"><div class="legend-color status-reserved"></div><span>Reserved</span></div>
+                <div class="legend-item"><div class="legend-color status-selected"></div><span>Selected</span></div>
+                <div class="legend-item"><div class="legend-color status-occupied"></div><span>Occupied</span></div>
+            </div>
+
+            <!-- Seating Area -->
+            <div class="seating-area">
+                <div id="seat-loading" class="absolute inset-0 bg-[#2a2a2a]/90 backdrop-blur-sm z-20 flex flex-col items-center justify-center rounded-lg">
+                    <div class="w-8 h-8 border-4 border-movie-accent border-t-transparent rounded-full animate-spin mb-3"></div>
+                    <span class="text-sm font-medium text-gray-300">Syncing live seats...</span>
+                </div>
+                <div class="auditorium">
+                    <div class="screen">SCREEN</div>
+                    <div class="direction"><span>Entrance</span><span>Exit</span></div>
+                    <div id="seatingChart"></div>
+                </div>
+            </div>
+
+            <!-- Form Area -->
+            <div class="booking-form">
+                <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-3">
+                    <h3 class="text-lg font-bold text-white">Booking Details</h3>
+                    <span class="bg-[#1e1e1e] text-xs px-2 py-1 rounded text-movie-accent border border-gray-700">Max 4 Seats</span>
+                </div>
+
+                <div class="bg-[#1e1e1e] border border-gray-700 rounded-lg p-3 text-sm">
+                    <div class="flex justify-between text-gray-400 mb-1">
+                        <span>Selected Seats (<span id="selected-count" class="text-white font-bold">0</span>):</span>
+                        <span id="selected-seats-display" class="font-bold text-movie-accent">None</span>
+                    </div>
+                    
+                    <!-- Promo Code System -->
+                    <div class="mt-3 border-t border-gray-700 pt-3">
+                        <label class="block text-xs text-gray-400 mb-1">Have a promo code?</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="promo-code-input" placeholder="e.g. EARLYBIRD" class="w-full px-2 py-1 bg-[#111] border border-gray-600 rounded text-sm text-white focus:border-movie-accent outline-none uppercase">
+                            <button type="button" id="apply-promo-btn" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm font-bold transition-colors">Apply</button>
+                        </div>
+                        <p id="promo-message" class="text-xs mt-1 hidden"></p>
+                    </div>
+
+                    <div class="flex justify-between text-gray-400 border-t border-gray-700 mt-3 pt-3">
+                        <span>Total Amount:</span>
+                        <span class="font-bold text-white text-lg">₹<span id="total-price">0</span></span>
+                    </div>
+                </div>
+
+                <!-- Unauthenticated Prompt -->
+                <div id="auth-prompt-container" class="mt-5 pt-5 border-t border-gray-700 text-center">
+                    <p class="text-sm text-gray-400 mb-3">You need to sign in to complete your booking.</p>
+                    <button onclick="switchView('login')" class="w-full py-3 bg-movie-accent text-black font-bold text-base rounded-lg hover:bg-yellow-500 transition-colors">Sign In to Book</button>
+                </div>
+
+                <!-- Authenticated Form -->
+                <form id="bookingForm" class="space-y-4 hidden mt-5 pt-5 border-t border-gray-700">
+                    <div class="form-group">
+                        <label>Student Email</label>
+                        <input type="email" id="form-email" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" id="form-name" required placeholder="Enter your full name">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="form-group mb-0">
+                            <label>Phone Number</label>
+                            <input type="tel" id="form-phone" required placeholder="10-digit number">
+                        </div>
+                        <div class="form-group mb-0 flex flex-col justify-end pb-2">
+                            <label class="flex items-center gap-2 cursor-pointer group">
+                                <input type="checkbox" id="form-wa-same" checked class="w-4 h-4 rounded border-gray-600 text-movie-accent bg-[#1e1e1e]">
+                                <span class="text-xs text-gray-400 group-hover:text-gray-300">WhatsApp is same</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group hidden" id="wa-group">
+                        <label>WhatsApp Number</label>
+                        <input type="tel" id="form-whatsapp" placeholder="10-digit WhatsApp number">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="form-group mb-0">
+                            <label>Student ID</label>
+                            <input type="text" id="form-student-id" required placeholder="Roll No">
+                        </div>
+                        <div class="form-group mb-0">
+                            <label>Department</label>
+                            <select id="form-department" required>
+                                <option value="" disabled selected>Select</option>
+                                <option value="AD">AD</option>
+                                <option value="BFT">BFT</option>
+                                <option value="MFM">MFM</option>
+                                <option value="FD">FD</option>
+                                <option value="FC">FC</option>
+                                <option value="TD">TD</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="pt-2 mt-2 border-t border-gray-700">
+                        <label class="flex items-start gap-3 cursor-pointer group mt-3">
+                            <input type="checkbox" id="terms-checkbox" class="mt-1 w-4 h-4 rounded border-gray-600 text-movie-accent focus:ring-movie-accent bg-[#1e1e1e]">
+                            <span class="text-xs text-gray-400 leading-tight group-hover:text-gray-300 transition-colors">
+                                I agree to the <a href="#" class="text-movie-accent hover:underline">terms and conditions</a> and confirm my details.
+                            </span>
+                        </label>
+                    </div>
+
+                    <button type="button" id="proceed-pay-btn" class="w-full py-3 mt-4 bg-movie-accent text-black font-bold text-base rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-yellow-500 shadow-[0_0_15px_rgba(245,197,24,0.1)]" disabled>
+                        Proceed to Pay
+                    </button>
+                </form>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 3. PROFILE / TICKETS SECTION -->
+    <div id="profile-view" class="view-section w-full">
+        <div class="booking-container mx-auto max-w-2xl">
+            <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-700">
+                <h2 class="text-2xl font-bold text-white">My Tickets</h2>
+                <button onclick="switchView('booking')" class="text-sm bg-gray-800 text-gray-300 px-3 py-1.5 rounded hover:bg-gray-700 transition">← Back</button>
+            </div>
+            
+            <div id="profile-loading" class="text-center py-10 text-gray-400">
+                <div class="w-8 h-8 border-4 border-movie-accent border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                Loading your tickets...
+            </div>
+
+            <div id="no-tickets-msg" class="hidden text-center py-12">
+                <svg class="w-16 h-16 text-gray-700 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path></svg>
+                <h3 class="text-lg font-bold text-gray-400">No Tickets Found</h3>
+                <p class="text-sm text-gray-500 mt-1">You haven't booked any seats yet.</p>
+                <button onclick="switchView('booking')" class="mt-4 px-6 py-2 bg-movie-accent text-black font-bold rounded-lg hover:bg-yellow-500 text-sm">Book Now</button>
+            </div>
+
+            <div id="tickets-container" class="space-y-6 hidden">
+                <!-- Tickets will be dynamically injected here -->
+            </div>
+        </div>
+    </div>
+
+  </main>
+
+  <!-- Modals -->
+  
+  <!-- Payment Modal -->
+  <div id="paymentModal" class="modal-overlay">
+    <div class="bg-[#1e1e1e] p-6 rounded-xl max-w-sm w-[90%] border border-gray-700 shadow-2xl relative">
+      <!-- Seat Hold Timer -->
+      <div class="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-4 py-1 rounded-full text-xs font-bold border-2 border-[#1e1e1e] flex items-center gap-2 shadow-lg">
+          <svg class="w-3 h-3 animate-pulse" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path></svg>
+          <span id="payment-timer">05:00</span>
+      </div>
+
+      <h3 class="text-xl font-bold text-white text-center mb-2 mt-3">Complete Payment</h3>
+      <p class="text-center text-gray-400 text-xs mb-4">Scan QR with any UPI app</p>
+      
+      <div class="bg-white p-2 rounded-lg w-max mx-auto mb-4">
+          <img id="paymentQrImage" src="" alt="UPI QR Code" class="w-40 h-40">
+      </div>
+      
+      <div class="text-center mb-5">
+          <span class="text-xs text-gray-400 block">Amount to Pay</span>
+          <span class="text-3xl font-black text-movie-accent">₹<span id="modal-amount"></span></span>
+          <p id="qrCodeInfo" class="text-[10px] text-gray-500 mt-1 bg-[#111] py-1 px-2 rounded inline-block"></p>
+      </div>
+
+      <div class="form-group mb-5">
+        <label class="text-gray-300 text-xs">Enter UTR / Transaction ID</label>
+        <input id="payment-utr" type="text" placeholder="12-digit reference number" class="text-center font-mono tracking-widest text-sm py-2" required>
+      </div>
+
+      <div class="form-group mb-5">
+        <label class="text-gray-300 text-xs">Upload Payment Screenshot</label>
+        <input type="file" id="payment-screenshot" accept="image/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#2a2a2a] file:text-white hover:file:bg-movie-accent hover:file:text-black transition-all cursor-pointer mt-1" required>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <button id="submitPaymentBtn" class="w-full py-2.5 bg-green-600 text-white font-bold text-sm rounded-lg hover:bg-green-500 transition-colors shadow-[0_0_10px_rgba(22,163,74,0.2)]">
+            Confirm Payment
+        </button>
+        <button id="cancelPaymentBtn" class="w-full py-2.5 bg-transparent border border-gray-600 text-gray-300 font-bold text-sm rounded-lg hover:bg-gray-800 transition-colors">
+            Cancel & Release Seats
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ticket Success Modal (Gate Scan QR) -->
+  <div id="ticketSuccessModal" class="modal-overlay">
+    <div class="bg-[#1e1e1e] p-6 rounded-xl max-w-sm w-[90%] border border-movie-accent shadow-[0_0_30px_rgba(245,197,24,0.2)]">
+      <div class="text-center mb-4">
+          <div class="w-12 h-12 bg-green-900/50 rounded-full flex items-center justify-center mx-auto mb-3 border border-green-500">
+              <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+          </div>
+          <h3 class="text-xl font-bold text-white">Booking Confirmed!</h3>
+          <p class="text-gray-400 text-xs mt-1">Show this QR code at the entrance gate.</p>
+      </div>
+      
+      <div class="bg-white p-3 rounded-lg w-max mx-auto mb-4">
+          <img id="successTicketQr" src="" alt="Ticket QR Code" class="ticket-qr" crossorigin="anonymous">
+      </div>
+      
+      <div class="text-center mb-6 bg-[#111] border border-gray-800 rounded-lg p-3">
+          <span class="text-xs text-gray-500 block">Ticket ID</span>
+          <span id="successTicketId" class="font-mono text-movie-accent font-bold tracking-widest block"></span>
+          <span class="text-xs text-gray-500 block mt-2">Seats Booked</span>
+          <span id="successTicketSeats" class="font-bold text-white block"></span>
+      </div>
+
+      <button onclick="document.getElementById('ticketSuccessModal').style.display='none'; switchView('profile');" class="w-full py-3 bg-movie-accent text-black font-bold text-sm rounded-lg hover:bg-yellow-500 transition-colors">
+        View in My Tickets
+      </button>
+    </div>
+  </div>
+
+  <!-- How to Book Modal -->
+  <div id="howToBookModal" class="modal-overlay">
+    <div class="bg-[#1e1e1e] p-6 rounded-xl max-w-sm w-[90%] border border-gray-700 shadow-2xl">
+      <h3 class="text-lg font-bold text-white mb-4 border-b border-gray-700 pb-2">How to Book Your Seat</h3>
+      <ol class="space-y-3 text-xs text-gray-300 list-decimal pl-4 marker:text-movie-accent marker:font-bold">
+          <li>Log in using your official <b>@nift.ac.in</b> email address.</li>
+          <li>Select up to <b>4 seats</b> from the interactive auditorium map.</li>
+          <li>Fill in the required student details for the main booker.</li>
+          <li>Click Proceed to Payment and scan the generated UPI QR code. You have <b>5 minutes</b> to complete this step.</li>
+          <li>Enter your <b>Transaction ID (UTR)</b> and upload a payment screenshot, then submit.</li>
+      </ol>
+      <button onclick="document.getElementById('howToBookModal').style.display='none'" class="w-full mt-6 py-2.5 bg-movie-accent text-black font-bold text-sm rounded-lg hover:bg-yellow-500">
+        Got It!
+      </button>
+    </div>
+  </div>
+
+  <!-- Global Toast -->
+  <div id="toast-message" class="fixed bottom-6 right-6 transform translate-y-20 opacity-0 transition-all duration-300 z-50 px-5 py-3 rounded-lg font-medium shadow-2xl flex items-center gap-3 text-sm">
+      <span id="toast-icon"></span>
+      <span id="toast-text"></span>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, onAuthStateChanged, signOut, reload } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
+
+    // --- Configuration & Initialization ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyCEDUyZD20PYvHMe-CX-_n2MWRvENiggd8",
+      authDomain: "apc-movie.firebaseapp.com",
+      databaseURL: "https://apc-movie-default-rtdb.firebaseio.com",
+      projectId: "apc-movie",
+      storageBucket: "apc-movie.firebasestorage.app",
+      messagingSenderId: "849582804075",
+      appId: "1:849582804075:web:44831ccf1309b106a2b52e",
+      measurementId: "G-D1EBGR4LJS"
+    };
+    
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    // --- State Variables ---
+    let currentUser = null;
+    let unsubSeats = null;
+    let verifiedEmail = "";
+    let isSignUpMode = false;
+    let holdTimerInterval = null;
+    
+    // Cloudinary Config
+    const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/dzh1pbrcm/image/upload";
+    const CLOUDINARY_UPLOAD_PRESET = "movie_tickets"; // 'Unsigned' preset
+    
+    const BASE_PRICE = 25; 
+    const MAX_SEATS = 4;
+    let selectedSeats = [];
+    let liveSeatsData = {};
+    let livePromoCodes = {};
+    // Promo Variables
+    let currentDiscountPerSeat = 0;
+    let appliedPromoCode = null;
+
+    // Helper for random jitter/delay (prevent Firebase rate limit spikes)
+    const randomDelay = (min, max) => new Promise(res => setTimeout(res, Math.floor(Math.random() * (max - min + 1) + min)));
+
+    function getUserBookedCount() {
+        if (!currentUser) return 0;
+        let count = 0;
+        Object.values(liveSeatsData).forEach(data => {
+            if (data.userId === currentUser.uid && data.status === 'occupied') {
+                count++;
+            }
+        });
+        return count;
+    }
+
+    function revalidateSelection() {
+        const prevCount = getUserBookedCount();
+        const allowed = Math.max(0, MAX_SEATS - prevCount);
+        
+        if (selectedSeats.length > allowed) {
+            selectedSeats = selectedSeats.slice(0, allowed);
+            if (allowed === 0) {
+                showToast(`You have already reached your limit of ${MAX_SEATS} booked seats.`, 'error');
+            } else {
+                showToast(`You previously booked ${prevCount} seat(s). Selection reduced to ${allowed}.`, 'error');
+            }
+        }
+    }
+
+    // UPI Accounts for rotation
+    const upiAccounts = [
+      { upiId: 'tishagupta2403@okhdfcbank', payeeName: 'Tanisha' },
+      { upiId: 'chyasar2004@okaxis', payeeName: 'Yasar' }
+    ];
+    let currentPaymentDetails = null;
+
+    // --- DOM Elements ---
+    const errLogin = document.getElementById('login-error');
+    const toast = document.getElementById('toast-message');
+    const btnProceed = document.getElementById('proceed-pay-btn');
+    const termsCheck = document.getElementById('terms-checkbox');
+    const waCheckbox = document.getElementById('form-wa-same');
+    const waGroup = document.getElementById('wa-group');
+    const waInput = document.getElementById('form-whatsapp');
+    const phoneInput = document.getElementById('form-phone');
+
+    // --- View Controller ---
+    window.switchView = function(viewId) {
+        document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+        document.getElementById(`${viewId}-view`).classList.add('active');
+        
+        if (viewId === 'booking' || viewId === 'profile') {
+            document.getElementById('header-user-info').classList.remove('hidden');
+            document.getElementById('header-email').textContent = verifiedEmail || (currentUser ? currentUser.email : "");
+            document.getElementById('form-email').value = verifiedEmail || (currentUser ? currentUser.email : "");
+            
+            if(!unsubSeats) loadSeatsData(); 
+            
+            if (viewId === 'profile') {
+                renderProfileTickets();
+            }
+        } else {
+            document.getElementById('header-user-info').classList.add('hidden');
+        }
+    };
+
+    // --- Form UI Interactions ---
+    waCheckbox.addEventListener('change', (e) => {
+        if(e.target.checked) {
+            waGroup.classList.add('hidden');
+            waInput.value = '';
+        } else {
+            waGroup.classList.remove('hidden');
+        }
+        checkFormValidity();
+    });
+
+    // --- Promo Code Flow ---
+    const promoCodeInput = document.getElementById('promo-code-input');
+    const applyPromoBtn = document.getElementById('apply-promo-btn');
+    const promoMessage = document.getElementById('promo-message');
+
+    applyPromoBtn.addEventListener('click', () => {
+        const code = promoCodeInput.value.trim().toUpperCase();
+        if(!code) return;
+
+        if (livePromoCodes[code]) {
+            currentDiscountPerSeat = parseInt(livePromoCodes[code].discount);
+            appliedPromoCode = code;
+            promoMessage.textContent = `Success! ₹${currentDiscountPerSeat} off per seat applied.`;
+            promoMessage.className = "text-xs mt-1 text-green-400 font-bold";
+            promoMessage.classList.remove('hidden');
+            applyPromoBtn.disabled = true;
+            promoCodeInput.disabled = true;
+        } else {
+            promoMessage.textContent = "Invalid or expired promo code.";
+            promoMessage.className = "text-xs mt-1 text-red-400";
+            promoMessage.classList.remove('hidden');
+        }
+        updateBookingPanel();
+    });
+
+    // --- Auth & Login Flow ---
+    const authEmailInput = document.getElementById('auth-email');
+    const authPasswordInput = document.getElementById('auth-password');
+    const authActionBtn = document.getElementById('auth-action-btn');
+    const authToggleBtn = document.getElementById('auth-toggle-btn');
+    const authTitle = document.getElementById('auth-title');
+
+    authToggleBtn.addEventListener('click', () => {
+        isSignUpMode = !isSignUpMode;
+        if (isSignUpMode) {
+            authTitle.textContent = "Create Account";
+            authActionBtn.textContent = "Sign Up";
+            authToggleBtn.textContent = "Already have an account? Sign In";
+            document.getElementById('auth-subtitle').textContent = "Join with your @nift.ac.in email";
+        } else {
+            authTitle.textContent = "Student Login";
+            authActionBtn.textContent = "Sign In";
+            authToggleBtn.textContent = "Need an account? Sign Up";
+            document.getElementById('auth-subtitle').textContent = "Access restricted to @nift.ac.in emails";
+        }
+        errLogin.classList.add('hidden');
+    });
+
+    authActionBtn.addEventListener('click', async () => {
+        const email = authEmailInput.value.trim().toLowerCase();
+        const password = authPasswordInput.value;
+        
+        if (!email || !password) {
+            showLoginError("Please enter both email and password.");
+            return;
+        }
+        if (!email.endsWith('@nift.ac.in')) {
+            showLoginError("Access denied. Only @nift.ac.in emails are allowed.");
+            return;
+        }
+        if (password.length < 6) {
+            showLoginError("Password must be at least 6 characters.");
+            return;
+        }
+        
+        errLogin.classList.add('hidden');
+        authActionBtn.disabled = true;
+        authActionBtn.textContent = "Processing...";
+
+        try {
+            await randomDelay(300, 1500);
+            if (isSignUpMode) {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                await sendEmailVerification(userCredential.user);
+                showToast("Account created! Please verify your email.", "success");
+            } else {
+                await signInWithEmailAndPassword(auth, email, password);
+                showToast("Logged in successfully!", "success");
+            }
+        } catch (error) {
+            console.warn("Auth info:", error.message);
+            if (error.code === 'auth/email-already-in-use') showLoginError("Email is already registered. Please sign in.");
+            else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') showLoginError("Invalid email or password. If you don't have an account, click Sign Up below.");
+            else showLoginError(error.message);
+        } finally {
+            authActionBtn.disabled = false;
+            authActionBtn.textContent = isSignUpMode ? "Sign Up" : "Sign In";
+        }
+    });
+
+    // --- Forgot Password Flow ---
+    window.showForgotPassword = function() {
+        document.getElementById('auth-form-step').classList.add('hidden');
+        document.getElementById('forgot-password-step').classList.remove('hidden');
+        document.getElementById('auth-title').textContent = "Forgot Password";
+        document.getElementById('auth-subtitle').textContent = "";
+        errLogin.classList.add('hidden');
+    }
+
+    document.getElementById('send-reset-btn').addEventListener('click', async () => {
+        const email = document.getElementById('reset-email').value.trim().toLowerCase();
+        if (!email) {
+            showLoginError("Please enter your email.");
+            return;
+        }
+        
+        const btn = document.getElementById('send-reset-btn');
+        btn.disabled = true;
+        btn.textContent = "Sending...";
+
+        try {
+            await sendPasswordResetEmail(auth, email);
+            showToast("Password reset link sent to your email!", "success");
+            showAuthForm();
+        } catch (error) {
+            showLoginError(error.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "Send Reset Link";
+        }
+    });
+
+    document.getElementById('check-verify-btn').addEventListener('click', async () => {
+        if (auth.currentUser) {
+            const btn = document.getElementById('check-verify-btn');
+            btn.disabled = true;
+            btn.textContent = "Checking...";
+            
+            await reload(auth.currentUser);
+            if (auth.currentUser.emailVerified) {
+                currentUser = auth.currentUser;
+                verifiedEmail = auth.currentUser.email;
+                showToast("Email verified!", "success");
+                switchView('booking');
+            } else {
+                showLoginError("Email is not verified yet. Check your inbox/spam folder.");
+            }
+            
+            btn.disabled = false;
+            btn.textContent = "I have verified - Continue";
+        }
+    });
+
+    document.getElementById('resend-verify-btn').addEventListener('click', async () => {
+        if (auth.currentUser && !auth.currentUser.emailVerified) {
+            try {
+                await sendEmailVerification(auth.currentUser);
+                showToast("Verification email resent!", "success");
+            } catch (error) {
+                if(error.code === 'auth/too-many-requests') showLoginError("Please wait a moment before resending.");
+                else showLoginError(error.message);
+            }
+        }
+    });
+
+    document.getElementById('cancel-verify-btn').addEventListener('click', () => signOut(auth));
+
+    document.getElementById('logout-btn').addEventListener('click', () => {
+        signOut(auth).then(() => {
+            showToast("Logged out successfully");
+            selectedSeats = [];
+            if (unsubSeats) { unsubSeats(); unsubSeats = null; }
+        }).catch((error) => {
+            showToast("Error logging out", "error");
+        });
+    });
+
+    function showLoginError(msg) {
+        errLogin.textContent = msg;
+        errLogin.classList.remove('hidden');
+    }
+
+    function showVerificationStep() {
+        document.getElementById('auth-form-step').classList.add('hidden');
+        document.getElementById('auth-verify-step').classList.remove('hidden');
+        document.getElementById('forgot-password-step').classList.add('hidden');
+        errLogin.classList.add('hidden');
+    }
+    
+    function showAuthForm() {
+        document.getElementById('auth-verify-step').classList.add('hidden');
+        document.getElementById('forgot-password-step').classList.add('hidden');
+        document.getElementById('auth-form-step').classList.remove('hidden');
+        document.getElementById('auth-title').textContent = isSignUpMode ? "Create Account" : "Student Login";
+        document.getElementById('auth-subtitle').textContent = isSignUpMode ? "Join with your @nift.ac.in email" : "Access restricted to @nift.ac.in emails";
+        errLogin.classList.add('hidden');
+        authPasswordInput.value = "";
+    }
+
+    onAuthStateChanged(auth, (user) => {
+        if (user && user.emailVerified) {
+            currentUser = user;
+            verifiedEmail = user.email;
+            
+            revalidateSelection();
+            renderSeatingChart();
+            updateBookingPanel();
+            
+            document.getElementById('header-login-btn').classList.add('hidden');
+            document.getElementById('header-user-info').classList.remove('hidden');
+            document.getElementById('header-email').textContent = verifiedEmail;
+            document.getElementById('form-email').value = verifiedEmail;
+            
+            document.getElementById('auth-prompt-container').classList.add('hidden');
+            document.getElementById('bookingForm').classList.remove('hidden');
+            
+            if(document.getElementById('login-view').classList.contains('active')) {
+                switchView('booking');
+            }
+        } else {
+            currentUser = null;
+            verifiedEmail = "";
+            
+            document.getElementById('header-login-btn').classList.remove('hidden');
+            document.getElementById('header-user-info').classList.add('hidden');
+            
+            document.getElementById('auth-prompt-container').classList.remove('hidden');
+            document.getElementById('bookingForm').classList.add('hidden');
+            
+            if (user && !user.emailVerified) {
+                currentUser = user;
+                switchView('login');
+                showVerificationStep();
+            } else {
+                showAuthForm();
+                if (document.getElementById('profile-view').classList.contains('active')) {
+                     switchView('booking');
+                }
+            }
+        }
+    });
+
+    // --- Database Fetching ---
+    async function loadSeatsData() {
+        await randomDelay(500, 3000);
+
+        const seatsRef = ref(db, 'movieSeats');
+        const promosRef = ref(db, 'promoCodes');
+        
+        onValue(promosRef, (snapshot) => {
+            livePromoCodes = snapshot.val() || {};
+        });
+
+        unsubSeats = onValue(seatsRef, (snapshot) => {
+            document.getElementById('seat-loading').style.display = 'none';
+            liveSeatsData = {};
+            
+            if (snapshot.exists()) {
+                liveSeatsData = snapshot.val();
+            }
+            
+            // Filter out selections that were booked or held by someone else
+            selectedSeats = selectedSeats.filter(seatId => {
+                const data = liveSeatsData[seatId];
+                if (!data) return true;
+                
+                const isOccupied = data.status === 'occupied';
+                const isHeldByOther = data.status === 'held' && data.expiresAt > Date.now() && data.userId !== (currentUser?.uid);
+                
+                if (isOccupied || isHeldByOther) {
+                    showToast(`Seat ${seatId} is no longer available.`, 'error');
+                    return false;
+                }
+                return true;
+            });
+            
+            revalidateSelection();
+            renderSeatingChart();
+            updateBookingPanel();
+            
+            if(document.getElementById('profile-view').classList.contains('active') && currentUser) {
+                renderProfileTickets();
+            }
+            
+        }, (error) => {
+            console.warn("Firebase listen warning:", error.message);
+            showToast("Lost connection to live seat map.", "error");
+        });
+    }
+
+    // --- UI Rendering ---
+    function renderSeatingChart() {
+        const container = document.getElementById("seatingChart");
+        container.innerHTML = "";
+        const rows = ['A','B','C','D','E','F','G','H'];
+        
+        rows.forEach((r, ri) => {
+            if (ri === 4) {
+                const aisleH = document.createElement("div");
+                aisleH.className = "aisle-horizontal";
+                container.appendChild(aisleH);
+            }
+            
+            const rowDiv = document.createElement("div");
+            rowDiv.className = "seat-row";
+            
+            const label = document.createElement("div");
+            label.className = "row-label";
+            label.textContent = r;
+            rowDiv.appendChild(label);
+            
+            const seatsDiv = document.createElement("div");
+            seatsDiv.className = "seats";
+            
+            for (let i = 1; i <= 30; i++) {
+                if (i === 16) {
+                    const aisleV = document.createElement("div");
+                    aisleV.className = "aisle-vertical";
+                    seatsDiv.appendChild(aisleV);
+                }
+                
+                const seatId = r + i;
+                const seatEl = document.createElement("div");
+                seatEl.className = "seat";
+                seatEl.textContent = i;
+                
+                const seatData = liveSeatsData[seatId];
+                
+                if (seatData && seatData.status === 'blocked') {
+                    seatEl.classList.add("reserved");
+                    seatEl.title = "Blocked by Admin";
+                } else if (seatData && seatData.status === 'occupied') {
+                    seatEl.classList.add("occupied");
+                } else if (seatData && seatData.status === 'held' && seatData.expiresAt > Date.now()) {
+                    if (currentUser && seatData.userId === currentUser.uid) {
+                        seatEl.classList.add("selected"); // Shown as selected if held by YOU
+                    } else {
+                        seatEl.classList.add("held"); // Shown as purple if held by SOMEONE ELSE
+                    }
+                } else if (selectedSeats.includes(seatId)) {
+                    seatEl.classList.add("selected");
+                    seatEl.addEventListener("click", () => handleSeatClick(seatId));
+                } else {
+                    seatEl.addEventListener("click", () => handleSeatClick(seatId));
+                }
+                
+                seatsDiv.appendChild(seatEl);
+            }
+            rowDiv.appendChild(seatsDiv);
+            container.appendChild(rowDiv);
+        });
+    }
+
+    function handleSeatClick(seatId) {
+        const seatData = liveSeatsData[seatId];
+        
+        if (seatData) {
+            if (seatData.status === 'blocked') return;
+            if (seatData.status === 'occupied') {
+                if (currentUser && seatData.userId === currentUser.uid) {
+                    showToast("You have already booked this seat.", "error");
+                }
+                return;
+            }
+            if (seatData.status === 'held' && seatData.expiresAt > Date.now() && (!currentUser || seatData.userId !== currentUser.uid)) {
+                return; // Currently locked by someone else
+            }
+        }
+        
+        const idx = selectedSeats.indexOf(seatId);
+        if (idx > -1) {
+            selectedSeats.splice(idx, 1);
+        } else {
+            const previousCount = getUserBookedCount();
+            const allowed = MAX_SEATS - previousCount;
+            
+            if (selectedSeats.length >= allowed) {
+                if (previousCount > 0) {
+                    showToast(`Limit reached! You previously booked ${previousCount} seat(s).`, 'error');
+                } else {
+                    showToast(`Maximum ${MAX_SEATS} seats allowed per booking.`, 'error');
+                }
+                return;
+            }
+            selectedSeats.push(seatId);
+        }
+        renderSeatingChart();
+        updateBookingPanel();
+    }
+
+    function updateBookingPanel() {
+        const count = selectedSeats.length;
+        document.getElementById('selected-count').textContent = count;
+        document.getElementById('selected-seats-display').textContent = count > 0 ? selectedSeats.sort().join(', ') : 'None';
+        
+        // Calculate price with promo code
+        const finalPricePerSeat = Math.max(0, BASE_PRICE - currentDiscountPerSeat);
+        document.getElementById('total-price').textContent = count * finalPricePerSeat;
+        
+        checkFormValidity();
+    }
+
+    function checkFormValidity() {
+        const hasSeats = selectedSeats.length > 0;
+        const name = document.getElementById('form-name').value.trim();
+        const studentId = document.getElementById('form-student-id').value.trim();
+        const dept = document.getElementById('form-department').value;
+        const phone = phoneInput.value.trim();
+        const terms = termsCheck.checked;
+        
+        const phoneValid = phone.length >= 10;
+        let waValid = true;
+        if(!waCheckbox.checked) {
+            waValid = waInput.value.trim().length >= 10;
+        }
+        
+        btnProceed.disabled = !(hasSeats && name && studentId && dept && phoneValid && waValid && terms);
+    }
+
+    ['form-name', 'form-student-id', 'form-department', 'form-phone', 'form-whatsapp'].forEach(id => {
+        document.getElementById(id).addEventListener('input', checkFormValidity);
+    });
+    termsCheck.addEventListener('change', checkFormValidity);
+
+    // --- Seat Hold Timer & Payment Flow ---
+    
+    function startHoldTimer() {
+        let timeLeft = 5 * 60; // 5 minutes in seconds
+        const timerDisplay = document.getElementById('payment-timer');
+        
+        clearInterval(holdTimerInterval);
+        holdTimerInterval = setInterval(() => {
+            timeLeft--;
+            const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+            const s = (timeLeft % 60).toString().padStart(2, '0');
+            timerDisplay.textContent = `${m}:${s}`;
+            
+            if (timeLeft <= 0) {
+                cancelPaymentHold(true);
+            }
+        }, 1000);
+    }
+
+    async function cancelPaymentHold(isAutoExpired = false) {
+        clearInterval(holdTimerInterval);
+        document.getElementById('paymentModal').style.display = 'none';
+        btnProceed.disabled = false;
+        btnProceed.textContent = "Proceed to Pay";
+        
+        try {
+            // Delete the holds to immediately free them up for others
+            const promises = selectedSeats.map(seatId => set(ref(db, `movieSeats/${seatId}`), null));
+            await Promise.all(promises);
+            
+            if (isAutoExpired) {
+                showToast("Time expired! Seats have been released.", "error");
+            } else {
+                showToast("Payment cancelled. Seats released.", "error");
+            }
+        } catch (error) {
+            console.warn("Notice: Error clearing hold", error.message);
+        }
+    }
+    
+    document.getElementById('cancelPaymentBtn').addEventListener('click', () => cancelPaymentHold(false));
+
+    btnProceed.addEventListener('click', async () => {
+        if (!currentUser) return;
+        
+        btnProceed.disabled = true;
+        btnProceed.textContent = "Locking Seats...";
+
+        // 1. Double check seats aren't already taken right now
+        let seatLost = false;
+        selectedSeats.forEach(seatId => {
+            const data = liveSeatsData[seatId];
+            if (data && (data.status === 'occupied' || (data.status === 'held' && data.expiresAt > Date.now() && data.userId !== currentUser.uid))) {
+                seatLost = true;
+            }
+        });
+
+        if (seatLost) {
+            showToast("One or more selected seats were just taken! Please select again.", "error");
+            btnProceed.disabled = false;
+            btnProceed.textContent = "Proceed to Pay";
+            return;
+        }
+
+        // 2. Write Hold to Firebase
+        try {
+            const promises = selectedSeats.map(seatId => {
+                return set(ref(db, `movieSeats/${seatId}`), {
+                    status: 'held',
+                    userId: currentUser.uid,
+                    expiresAt: Date.now() + 5 * 60 * 1000 // 5 minutes
+                });
+            });
+            await Promise.all(promises);
+            
+            // 3. Prepare Payment UI
+            const count = selectedSeats.length;
+            const amount = count * Math.max(0, BASE_PRICE - currentDiscountPerSeat);
+            const account = upiAccounts[Math.floor(Math.random() * upiAccounts.length)];
+            currentPaymentDetails = { account: account, amount: amount };
+
+            const upiString = `upi://pay?pa=${account.upiId}&pn=${encodeURIComponent(account.payeeName)}&am=${amount}.00&cu=INR`;
+            const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(upiString)}&color=000000&bgcolor=ffffff`;
+            
+            document.getElementById('paymentQrImage').src = qrApiUrl;
+            document.getElementById('modal-amount').textContent = amount;
+            document.getElementById('qrCodeInfo').innerHTML = `Payee: <b>${account.payeeName}</b><br>UPI: ${account.upiId}`;
+            document.getElementById('payment-utr').value = '';
+            document.getElementById('payment-screenshot').value = '';
+            
+            document.getElementById('paymentModal').style.display = 'flex';
+            startHoldTimer();
+
+        } catch (error) {
+            console.warn("Hold issue:", error.message);
+            showToast("Network error trying to hold seats.", "error");
+            btnProceed.disabled = false;
+            btnProceed.textContent = "Proceed to Pay";
+        }
+    });
+
+    document.getElementById('submitPaymentBtn').addEventListener('click', async () => {
+        const utr = document.getElementById('payment-utr').value.trim();
+        const screenshotInput = document.getElementById('payment-screenshot');
+
+        if (utr.length < 6) {
+            showToast("Please enter a valid Transaction ID", "error");
+            return;
+        }
+
+        if (!screenshotInput.files || screenshotInput.files.length === 0) {
+            showToast("Please upload a payment screenshot", "error");
+            return;
+        }
+
+        const btn = document.getElementById('submitPaymentBtn');
+        btn.disabled = true;
+        btn.textContent = "Uploading Image...";
+        
+        // Pause timer while uploading so it doesn't expire during network lag
+        clearInterval(holdTimerInterval);
+
+        try {
+            // Upload image to Cloudinary
+            const file = screenshotInput.files[0];
+            const imgData = new FormData();
+            imgData.append('file', file);
+            imgData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+            
+            const uploadRes = await fetch(CLOUDINARY_URL, { method: 'POST', body: imgData });
+            const uploadJson = await uploadRes.json();
+            
+            if (!uploadJson.secure_url) {
+                throw new Error("Failed to upload image. Check Cloudinary settings.");
+            }
+            const screenshotUrl = uploadJson.secure_url;
+            
+            btn.textContent = "Processing Booking...";
+
+            const ticketId = `NIFT-${Date.now().toString().slice(-5)}-${Math.floor(Math.random()*100)}`;
+            const waNumber = waCheckbox.checked ? phoneInput.value.trim() : waInput.value.trim();
+
+            const formData = {
+                ticketId: ticketId,
+                bookerName: document.getElementById('form-name').value.trim(),
+                phone: phoneInput.value.trim(),
+                whatsapp: waNumber,
+                studentId: document.getElementById('form-student-id').value.trim(),
+                department: document.getElementById('form-department').value,
+                email: verifiedEmail,
+                utr: utr,
+                screenshotUrl: screenshotUrl,
+                paidAmount: currentPaymentDetails.amount,
+                payeeUsed: currentPaymentDetails.account.payeeName,
+                promoCode: appliedPromoCode || "None",
+                userId: currentUser.uid,
+                timestamp: new Date().toISOString()
+            };
+
+            // Finalize seats
+            const promises = selectedSeats.map(seatId => {
+                return set(ref(db, `movieSeats/${seatId}`), {
+                    status: 'occupied',
+                    seatId: seatId,
+                    ...formData
+                });
+            });
+
+            await Promise.all(promises);
+
+            document.getElementById('paymentModal').style.display = 'none';
+            showTicketModal(ticketId, selectedSeats);
+            
+            // Reset Booking State
+            selectedSeats = [];
+            document.getElementById('bookingForm').reset();
+            waGroup.classList.add('hidden');
+            termsCheck.checked = false;
+            
+            // Reset Promo Code
+            currentDiscountPerSeat = 0;
+            appliedPromoCode = null;
+            promoCodeInput.value = "";
+            promoCodeInput.disabled = false;
+            applyPromoBtn.disabled = false;
+            promoMessage.classList.add('hidden');
+            
+            updateBookingPanel();
+            
+        } catch (error) {
+            console.warn("Booking notice:", error.message);
+            showToast("Failed to process booking.", "error");
+            startHoldTimer(); // Resume timer if failed
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "Confirm Payment";
+            btnProceed.disabled = false;
+            btnProceed.textContent = "Proceed to Pay";
+        }
+    });
+
+    // --- Profile & Tickets Generation ---
+    function renderProfileTickets() {
+        document.getElementById('profile-loading').style.display = 'none';
+        const container = document.getElementById('tickets-container');
+        const noTicketsMsg = document.getElementById('no-tickets-msg');
+        container.innerHTML = '';
+        
+        const userTickets = {};
+        Object.entries(liveSeatsData).forEach(([seatId, data]) => {
+            if(data.userId === currentUser.uid && data.status === 'occupied') {
+                if(!userTickets[data.ticketId]) {
+                    userTickets[data.ticketId] = {
+                        ticketId: data.ticketId,
+                        bookerName: data.bookerName,
+                        seats: [],
+                        timestamp: data.timestamp,
+                        amountPaid: data.paidAmount || 0, // Fallback if saved earlier
+                        promoCode: data.promoCode || "None"
+                    };
+                }
+                userTickets[data.ticketId].seats.push(seatId);
+            }
+        });
+
+        const ticketIds = Object.keys(userTickets);
+        
+        if (ticketIds.length === 0) {
+            container.classList.add('hidden');
+            noTicketsMsg.classList.remove('hidden');
+            return;
+        }
+
+        noTicketsMsg.classList.add('hidden');
+        container.classList.remove('hidden');
+
+        ticketIds.sort((a, b) => new Date(userTickets[b].timestamp) - new Date(userTickets[a].timestamp));
+
+        ticketIds.forEach(tId => {
+            const tk = userTickets[tId];
+            const dateStr = new Date(tk.timestamp).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+            
+            const qrData = encodeURIComponent(`TICKET:${tk.ticketId}|SEATS:${tk.seats.join(',')}|NAME:${tk.bookerName}`);
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrData}&color=000000&bgcolor=ffffff`;
+
+            const card = document.createElement('div');
+            // Give card an ID so we can screenshot it
+            card.id = `ticket-card-${tk.ticketId}`;
+            card.className = "ticket-card flex flex-col md:flex-row items-center p-5 md:p-6 gap-6 relative";
+            
+            card.innerHTML = `
+                <div class="flex-shrink-0 bg-white p-2 rounded-lg">
+                    <!-- Added crossorigin to prevent canvas taint issues -->
+                    <img src="${qrUrl}" alt="Ticket QR" class="w-24 h-24 md:w-32 md:h-32 object-cover" crossorigin="anonymous">
+                </div>
+                <div class="flex-grow w-full text-center md:text-left border-t md:border-t-0 md:border-l border-gray-700 pt-4 md:pt-0 md:pl-6">
+                    <div class="text-movie-accent text-xs font-bold tracking-widest mb-1 uppercase">Admit ${tk.seats.length}</div>
+                    <h4 class="text-2xl font-black text-white mb-1">Seats: ${tk.seats.sort().join(', ')}</h4>
+                    <p class="text-sm text-gray-400 mb-4">Ticket ID: <span class="font-mono text-gray-300">${tk.ticketId}</span></p>
+                    <div class="grid grid-cols-2 gap-3 text-xs text-left">
+                        <div class="bg-[#111] p-2 rounded border border-gray-800">
+                            <span class="block text-gray-500 mb-0.5">Booked On</span>
+                            <span class="text-gray-300 font-medium">${dateStr}</span>
+                        </div>
+                        <div class="bg-[#111] p-2 rounded border border-gray-800">
+                            <span class="block text-gray-500 mb-0.5">Total Paid</span>
+                            <span class="text-green-400 font-bold text-sm">₹${tk.amountPaid}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Download Button (Ignored in screenshot using data-html2canvas-ignore) -->
+                <button onclick="downloadTicket('${tk.ticketId}')" data-html2canvas-ignore="true" class="md:absolute top-4 right-4 mt-4 md:mt-0 w-full md:w-auto px-3 py-1.5 bg-gray-800 border border-gray-600 hover:bg-movie-accent hover:text-black hover:border-movie-accent text-white rounded text-xs font-bold transition flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> Download
+                </button>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    // --- Image Downloading Logic ---
+    window.downloadTicket = function(ticketId) {
+        const cardElement = document.getElementById(`ticket-card-${ticketId}`);
+        if (!cardElement) return;
+        
+        showToast("Generating image...", "success");
+        
+        // Use html2canvas to capture the ticket div
+        html2canvas(cardElement, {
+            backgroundColor: '#1e1e1e', // Match dark theme
+            scale: 2, // High resolution
+            useCORS: true // Allow cross-origin for the QR code image
+        }).then(canvas => {
+            // Convert to PNG and download
+            const image = canvas.toDataURL("image/png");
+            const link = document.createElement('a');
+            link.download = `NIFT_Movie_Ticket_${ticketId}.png`;
+            link.href = image;
+            link.click();
+        }).catch(err => {
+            console.warn("Screenshot generation notice:", err.message);
+            showToast("Failed to download image. Try taking a screenshot manually.", "error");
+        });
+    }
+
+    function showTicketModal(ticketId, seatsArr) {
+        const qrData = encodeURIComponent(`TICKET:${ticketId}|SEATS:${seatsArr.join(',')}`);
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${qrData}&color=000000&bgcolor=ffffff`;
+        
+        document.getElementById('successTicketQr').src = qrUrl;
+        document.getElementById('successTicketId').textContent = ticketId;
+        document.getElementById('successTicketSeats').textContent = seatsArr.sort().join(', ');
+        
+        document.getElementById('ticketSuccessModal').style.display = 'flex';
+    }
+
+    // --- Utility ---
+    function showToast(msg, type = 'success') {
+        toast.className = `fixed bottom-6 right-6 transform z-50 px-5 py-3 rounded-lg font-medium shadow-2xl flex items-center gap-3 text-sm transition-all duration-300`;
+        if (type === 'success') {
+            toast.classList.add('bg-green-600', 'text-white');
+            toast.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> <span>${msg}</span>`;
+        } else {
+            toast.classList.add('bg-red-600', 'text-white');
+            toast.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> <span>${msg}</span>`;
+        }
+        
+        requestAnimationFrame(() => {
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+        });
+        
+        setTimeout(() => {
+            toast.classList.remove('translate-y-0', 'opacity-100');
+            toast.classList.add('translate-y-20', 'opacity-0');
+        }, 4000);
+    }
+
+    loadSeatsData();
+  </script>
+</body>
+</html>
