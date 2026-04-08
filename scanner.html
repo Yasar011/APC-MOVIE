@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Gate Scanner - NIFT Movie Night</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #0f1115; color: #E0E0E0; }
+    .bg-panel { background: #1e1e1e; border: 1px solid #333; }
+    .text-movie-accent { color: #f5c518; }
+    .bg-movie-accent { background-color: #f5c518; }
+
+    /* Scanner Overrides */
+    #reader { border: none !important; border-radius: 12px; overflow: hidden; width: 100%; background: #000; }
+    #reader__scan_region { background: #000; }
+    #reader button { background: #333; color: white; padding: 10px 16px; border-radius: 8px; cursor: pointer; border: 1px solid #555; margin: 5px; font-weight: bold; width: calc(100% - 10px); }
+    #reader a { color: #3498db; display: none; } /* Hide the default HTML5-qrcode link */
+    #reader__dashboard_section_csr span { color: white !important; }
+  </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="bg-[#111] border-b border-gray-800 sticky top-0 z-40 shadow-md">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
+        <div class="flex items-center gap-2">
+            <span class="font-black text-xl text-white">Gate</span>
+            <span class="font-bold text-xl text-movie-accent">Scanner</span>
+        </div>
+        <button id="logout-btn" class="hidden px-3 py-1.5 bg-red-900/30 border border-red-900/50 text-red-400 rounded text-xs font-bold transition-colors">Logout</button>
+    </div>
+  </header>
+
+  <main class="flex-grow flex flex-col items-center justify-start p-4 max-w-lg mx-auto w-full">
+    
+    <!-- 1. LOGIN SECTION -->
+    <div id="login-view" class="w-full mt-10">
+        <div class="bg-panel p-6 rounded-xl shadow-2xl border border-gray-700">
+            <h2 class="text-xl font-bold text-white mb-2 text-center">Scanner Login</h2>
+            <p class="text-xs text-gray-400 text-center mb-6">Log in with your admin/volunteer account.</p>
+            <div class="space-y-4">
+                <input type="email" id="auth-email" placeholder="Email Address" class="w-full px-4 py-3 bg-[#111] border border-gray-700 rounded-lg text-white focus:border-movie-accent outline-none">
+                <input type="password" id="auth-password" placeholder="Password" class="w-full px-4 py-3 bg-[#111] border border-gray-700 rounded-lg text-white focus:border-movie-accent outline-none">
+                <button id="login-btn" class="w-full py-3 bg-movie-accent text-black font-bold rounded-lg hover:bg-yellow-500 transition-colors shadow-lg">Login</button>
+                <div id="login-error" class="text-red-400 text-sm text-center font-medium hidden"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. SCANNER ACTIVE SECTION -->
+    <div id="scanner-view" class="w-full hidden flex flex-col items-center mt-2">
+        <div class="w-full bg-blue-900/20 border border-blue-900/50 text-blue-300 p-3 rounded-lg mb-4 text-sm text-center font-medium">
+            <span id="sync-status">Syncing live tickets...</span>
+        </div>
+        
+        <div id="reader" class="w-full shadow-2xl border-2 border-gray-700"></div>
+        <p class="text-gray-400 text-sm mt-4 text-center">Point your camera at a student's ticket QR code.</p>
+    </div>
+
+    <!-- 3. SCAN RESULT SECTION -->
+    <div id="result-view" class="w-full hidden mt-2">
+        <div id="result-card" class="bg-panel p-5 rounded-2xl shadow-2xl border-2 border-gray-700 flex flex-col gap-4">
+            
+            <!-- Status Header -->
+            <div id="res-status-banner" class="p-3 rounded-lg text-center font-black text-lg tracking-widest uppercase">
+                <!-- Injected via JS -->
+            </div>
+
+            <!-- Screenshot Viewer -->
+            <div class="w-full bg-black rounded-lg overflow-hidden border border-gray-700 flex items-center justify-center min-h-[200px] relative">
+                <img id="res-screenshot" src="" alt="Payment Proof" class="max-h-[300px] w-full object-contain">
+                <div id="res-no-proof" class="absolute inset-0 flex items-center justify-center text-gray-500 font-bold bg-[#111] hidden">NO IMAGE UPLOADED</div>
+            </div>
+
+            <!-- Verification Badge -->
+            <div id="res-verification-badge" class="text-center text-xs font-bold py-1.5 rounded bg-gray-800">
+                <!-- Injected via JS -->
+            </div>
+
+            <!-- Ticket Details -->
+            <div class="bg-[#111] p-4 rounded-lg border border-gray-800 space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-gray-500">Ticket ID</span>
+                    <span id="res-ticket-id" class="font-mono text-movie-accent font-bold"></span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500">Name</span>
+                    <span id="res-name" class="font-bold text-white text-right"></span>
+                </div>
+                <div class="flex justify-between border-t border-gray-800 pt-2 mt-2">
+                    <span class="text-gray-500">Seats</span>
+                    <span id="res-seats" class="font-black text-white text-lg"></span>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col gap-3 mt-2">
+                <button id="btn-check-in" class="w-full py-4 bg-green-600 text-white font-black text-lg rounded-xl hover:bg-green-500 transition-colors shadow-[0_0_20px_rgba(22,163,74,0.4)]">
+                    ALLOW ENTRY (Check In)
+                </button>
+                <button onclick="resetScanner()" class="w-full py-3 bg-gray-800 text-white font-bold rounded-xl border border-gray-600 hover:bg-gray-700 transition-colors">
+                    Cancel / Scan Next
+                </button>
+            </div>
+
+        </div>
+    </div>
+  </main>
+
+  <!-- Global Toast -->
+  <div id="toast-message" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 translate-y-20 opacity-0 transition-all duration-300 z-50 px-5 py-3 rounded-full font-bold shadow-2xl flex items-center gap-2 text-sm w-max whitespace-nowrap">
+      <span id="toast-text"></span>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
+
+    // --- Configuration & Initialization ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyCEDUyZD20PYvHMe-CX-_n2MWRvENiggd8",
+      authDomain: "apc-movie.firebaseapp.com",
+      databaseURL: "https://apc-movie-default-rtdb.firebaseio.com",
+      projectId: "apc-movie",
+      storageBucket: "apc-movie.firebasestorage.app",
+      messagingSenderId: "849582804075",
+      appId: "1:849582804075:web:44831ccf1309b106a2b52e"
+    };
+    
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    // --- State ---
+    let groupedTickets = [];
+    let html5QrcodeScanner = null;
+    let currentScannedTicketId = null;
+
+    // --- DOM Elements ---
+    const loginView = document.getElementById('login-view');
+    const scannerView = document.getElementById('scanner-view');
+    const resultView = document.getElementById('result-view');
+    const logoutBtn = document.getElementById('logout-btn');
+    const syncStatus = document.getElementById('sync-status');
+
+    // --- Auth Flow ---
+    document.getElementById('login-btn').addEventListener('click', async () => {
+        const email = document.getElementById('auth-email').value.trim();
+        const password = document.getElementById('auth-password').value;
+        const btn = document.getElementById('login-btn');
+        
+        if (!email || !password) return showLoginError("Enter email and password.");
+        
+        document.getElementById('login-error').classList.add('hidden');
+        btn.disabled = true;
+        btn.textContent = "Authenticating...";
+
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+            showToast("Scanner activated.", "success");
+        } catch (error) {
+            showLoginError("Invalid credentials.");
+            btn.disabled = false;
+            btn.textContent = "Login";
+        }
+    });
+
+    logoutBtn.addEventListener('click', () => {
+        if(html5QrcodeScanner) html5QrcodeScanner.clear();
+        signOut(auth);
+    });
+
+    function showLoginError(msg) {
+        const err = document.getElementById('login-error');
+        err.textContent = msg;
+        err.classList.remove('hidden');
+    }
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            loginView.classList.add('hidden');
+            scannerView.classList.remove('hidden');
+            logoutBtn.classList.remove('hidden');
+            startDataSync();
+            initScanner();
+        } else {
+            loginView.classList.remove('hidden');
+            scannerView.classList.add('hidden');
+            resultView.classList.add('hidden');
+            logoutBtn.classList.add('hidden');
+            if(html5QrcodeScanner) html5QrcodeScanner.clear();
+        }
+    });
+
+    // --- Data Fetching ---
+    function startDataSync() {
+        const seatsRef = ref(db, 'movieSeats');
+        onValue(seatsRef, (snapshot) => {
+            const data = snapshot.val() || {};
+            processTickets(data);
+            syncStatus.innerHTML = `✅ Database Synced (${groupedTickets.length} tickets)`;
+            syncStatus.parentElement.className = "w-full bg-green-900/20 border border-green-900/50 text-green-400 p-2 rounded-lg mb-4 text-xs text-center font-bold tracking-wider";
+        });
+    }
+
+    function processTickets(liveSeatsData) {
+        const ticketMap = {};
+        Object.entries(liveSeatsData).forEach(([seatId, data]) => {
+            if (data.status === 'occupied' && data.ticketId) {
+                if (!ticketMap[data.ticketId]) {
+                    ticketMap[data.ticketId] = {
+                        ticketId: data.ticketId,
+                        bookerName: data.bookerName || "N/A",
+                        screenshotUrl: data.screenshotUrl || null,
+                        verificationStatus: data.verificationStatus || 'pending',
+                        checkedIn: data.checkedIn || false,
+                        seats: []
+                    };
+                }
+                ticketMap[data.ticketId].seats.push(seatId);
+            }
+        });
+        groupedTickets = Object.values(ticketMap);
+        
+        // If we are currently viewing a result, update it live
+        if (currentScannedTicketId && !resultView.classList.contains('hidden')) {
+            const liveTk = groupedTickets.find(t => t.ticketId === currentScannedTicketId);
+            if (liveTk) updateResultUI(liveTk);
+        }
+    }
+
+    // --- Scanner Logic ---
+    function initScanner() {
+        if(html5QrcodeScanner) html5QrcodeScanner.clear();
+        
+        // Optimize for mobile back camera
+        html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
+            fps: 10, 
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0,
+            supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
+        }, false);
+        
+        html5QrcodeScanner.render(onScanSuccess, () => {});
+    }
+
+    window.resetScanner = function() {
+        currentScannedTicketId = null;
+        resultView.classList.add('hidden');
+        scannerView.classList.remove('hidden');
+        if(html5QrcodeScanner) html5QrcodeScanner.resume();
+    }
+
+    function onScanSuccess(decodedText, decodedResult) {
+        const match = decodedText.match(/TICKET:(NIFT-[A-Za-z0-9-]+)/);
+        
+        if (match && match[1]) {
+            html5QrcodeScanner.pause(true); // Stop scanning immediately
+            const ticketId = match[1];
+            currentScannedTicketId = ticketId;
+            
+            const tk = groupedTickets.find(t => t.ticketId === ticketId);
+            
+            if (!tk) {
+                alert(`❌ INVALID OR CANCELED TICKET!\nTicket ID ${ticketId} not found.`);
+                html5QrcodeScanner.resume();
+                return;
+            }
+
+            // Switch UI
+            scannerView.classList.add('hidden');
+            resultView.classList.remove('hidden');
+            
+            updateResultUI(tk);
+        }
+    }
+
+    function updateResultUI(tk) {
+        const banner = document.getElementById('res-status-banner');
+        const checkInBtn = document.getElementById('btn-check-in');
+        const badge = document.getElementById('res-verification-badge');
+        
+        // Setup Basic Info
+        document.getElementById('res-ticket-id').textContent = tk.ticketId;
+        document.getElementById('res-name').textContent = tk.bookerName;
+        document.getElementById('res-seats').textContent = tk.seats.sort().join(', ');
+
+        // Setup Image
+        const img = document.getElementById('res-screenshot');
+        const noImg = document.getElementById('res-no-proof');
+        if (tk.screenshotUrl) {
+            img.src = tk.screenshotUrl;
+            img.classList.remove('hidden');
+            noImg.classList.add('hidden');
+        } else {
+            img.classList.add('hidden');
+            noImg.classList.remove('hidden');
+        }
+
+        // Setup Verification Status Badge
+        if (tk.verificationStatus === 'approved') {
+            badge.className = "text-center text-xs font-bold py-1.5 rounded bg-green-900/30 text-green-400 border border-green-900/50";
+            badge.innerHTML = "✓ Payment Verified by Admin";
+        } else {
+            badge.className = "text-center text-xs font-bold py-1.5 rounded bg-yellow-900/30 text-yellow-400 border border-yellow-900/50";
+            badge.innerHTML = "⚠️ Payment NOT verified yet. Check proof above.";
+        }
+
+        // Setup Main Status (Already Checked in vs Ready)
+        if (tk.checkedIn) {
+            document.getElementById('result-card').className = "bg-panel p-5 rounded-2xl shadow-2xl border-4 border-red-600 flex flex-col gap-4";
+            banner.className = "p-3 rounded-lg text-center font-black text-xl tracking-widest uppercase bg-red-600 text-white animate-pulse";
+            banner.textContent = "STOP! ALREADY CHECKED IN";
+            checkInBtn.classList.add('hidden'); // Hide check in button
+        } else {
+            document.getElementById('result-card').className = "bg-panel p-5 rounded-2xl shadow-2xl border-2 border-movie-accent flex flex-col gap-4";
+            banner.className = "p-3 rounded-lg text-center font-black text-lg tracking-widest uppercase bg-movie-accent text-black";
+            banner.textContent = "VALID TICKET";
+            checkInBtn.classList.remove('hidden');
+            
+            // Set up the Check In Button Action
+            checkInBtn.onclick = () => performCheckIn(tk);
+        }
+    }
+
+    async function performCheckIn(tk) {
+        const btn = document.getElementById('btn-check-in');
+        btn.disabled = true;
+        btn.textContent = "Processing...";
+
+        try {
+            const updates = {};
+            tk.seats.forEach(seatId => {
+                updates[`movieSeats/${seatId}/checkedIn`] = true;
+            });
+            await update(ref(db), updates);
+            showToast("Successfully Checked In!", "success");
+            // The UI will auto-update because of the live Firebase listener calling processTickets() -> updateResultUI()
+        } catch (error) {
+            console.error(error);
+            showToast("Error. Make sure you have admin rights.", "error");
+            btn.disabled = false;
+            btn.textContent = "ALLOW ENTRY (Check In)";
+        }
+    }
+
+    // --- Toast Utility ---
+    const toast = document.getElementById('toast-message');
+    function showToast(msg, type = 'success') {
+        const tText = document.getElementById('toast-text');
+        tText.textContent = msg;
+        
+        if (type === 'success') {
+            toast.className = `fixed bottom-10 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full font-bold shadow-2xl flex items-center justify-center text-sm w-max whitespace-nowrap z-50 transition-all duration-300 bg-green-500 text-white`;
+        } else {
+            toast.className = `fixed bottom-10 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full font-bold shadow-2xl flex items-center justify-center text-sm w-max whitespace-nowrap z-50 transition-all duration-300 bg-red-600 text-white`;
+        }
+        
+        setTimeout(() => {
+            toast.classList.add('translate-y-20', 'opacity-0');
+        }, 3000);
+    }
+  </script>
+</body>
+</html>
