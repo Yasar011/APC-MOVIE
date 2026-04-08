@@ -209,6 +209,7 @@
                 <button id="auth-action-btn" class="w-full py-3 bg-movie-accent text-black font-bold rounded-lg hover:bg-yellow-500 transition-colors">
                     Sign In
                 </button>
+                <p id="auth-spam-notice" class="hidden text-xs text-gray-500 text-center mt-2">If you don't receive the email, please check your spam/junk folder.</p>
                 <div class="mt-4 text-center">
                     <button id="auth-toggle-btn" type="button" class="text-sm text-movie-accent hover:underline bg-transparent border-none cursor-pointer">
                         Need an account? Sign Up
@@ -269,8 +270,14 @@
             <!-- Event Card -->
             <div class="event-card">
                 <div class="text-gray-300">Auditorium Screening</div>
-                <div class="text-gray-300">6:00 PM</div>
+                <div class="text-gray-300">10:00 PM</div>
                 <div class="text-movie-accent font-bold">₹<span id="base-price-display">25</span> / Seat</div>
+            </div>
+
+            <!-- Booking Closed Banner -->
+            <div id="booking-closed-message" class="hidden text-center py-10 bg-red-900/20 border border-red-900/50 rounded-xl mb-6">
+                <h2 class="text-2xl font-black text-red-500 uppercase tracking-widest">Bookings Closed</h2>
+                <p class="text-gray-400 text-sm mt-2">Ticket sales for this event have officially ended.</p>
             </div>
 
             <!-- Legend -->
@@ -335,12 +342,15 @@
                         <label>Student Email</label>
                         <input type="email" id="form-email" readonly>
                     </div>
-                    <div class="form-group">
-                        <label>Full Name</label>
+                    <div class="form-group mb-2">
+                        <label>Full Name (Main Booker)</label>
                         <input type="text" id="form-name" required placeholder="Enter your full name">
                     </div>
 
-                    <div class="grid grid-cols-2 gap-4">
+                    <!-- Dynamic Guest Names Container -->
+                    <div id="guest-names-container" class="hidden pb-2"></div>
+
+                    <div class="grid grid-cols-2 gap-4 mt-2">
                         <div class="form-group mb-0">
                             <label>Phone Number</label>
                             <input type="tel" id="form-phone" required placeholder="10-digit number">
@@ -381,7 +391,7 @@
                         <label class="flex items-start gap-3 cursor-pointer group mt-3">
                             <input type="checkbox" id="terms-checkbox" class="mt-1 w-4 h-4 rounded border-gray-600 text-movie-accent focus:ring-movie-accent bg-[#1e1e1e]">
                             <span class="text-xs text-gray-400 leading-tight group-hover:text-gray-300 transition-colors">
-                                I agree to the <a href="#" class="text-movie-accent hover:underline">terms and conditions</a> and confirm my details.
+                                I agree to the <a href="#" class="text-movie-accent hover:underline" onclick="alert('Event Rules:\n1. Bring NIFT ID\n2. No outside food\n3. No refunds'); return false;">terms and conditions</a> (Bring NIFT ID, No outside food, No refunds) and confirm my details.
                             </span>
                         </label>
                     </div>
@@ -588,10 +598,11 @@
         }
     }
 
-    // UPI Accounts for rotation
+    // UPI khate rotation sathi (Fakt Yasar C H che IDs)
     const upiAccounts = [
-      { upiId: 'tishagupta2403@okhdfcbank', payeeName: 'Tanisha' },
-      { upiId: 'chyasar2004@okaxis', payeeName: 'Yasar' }
+      { upiId: 'chyasar2004-2@oksbi', payeeName: 'Yasar C H' },
+      { upiId: 'chyasar2004-1@oksbi', payeeName: 'Yasar C H' },
+      { upiId: 'chyasar2004@okaxis', payeeName: 'Yasar C H' }
     ];
     let currentPaymentDetails = null;
 
@@ -675,11 +686,13 @@
             authActionBtn.textContent = "Sign Up";
             authToggleBtn.textContent = "Already have an account? Sign In";
             document.getElementById('auth-subtitle').textContent = "Join with your @nift.ac.in email";
+            document.getElementById('auth-spam-notice').classList.remove('hidden');
         } else {
             authTitle.textContent = "Student Login";
             authActionBtn.textContent = "Sign In";
             authToggleBtn.textContent = "Need an account? Sign Up";
             document.getElementById('auth-subtitle').textContent = "Access restricted to @nift.ac.in emails";
+            document.getElementById('auth-spam-notice').classList.add('hidden');
         }
         errLogin.classList.add('hidden');
     });
@@ -874,7 +887,21 @@
 
         const seatsRef = ref(db, 'movieSeats');
         const promosRef = ref(db, 'promoCodes');
+        const statusRef = ref(db, 'settings/bookingStatus'); // Live Global Booking Switch
         
+        onValue(statusRef, (snapshot) => {
+            const status = snapshot.val();
+            if (status === 'closed') {
+                document.getElementById('booking-closed-message').classList.remove('hidden');
+                document.querySelector('.seating-area').classList.add('hidden');
+                document.querySelector('.booking-form').classList.add('hidden');
+            } else {
+                document.getElementById('booking-closed-message').classList.add('hidden');
+                document.querySelector('.seating-area').classList.remove('hidden');
+                document.querySelector('.booking-form').classList.remove('hidden');
+            }
+        });
+
         onValue(promosRef, (snapshot) => {
             livePromoCodes = snapshot.val() || {};
         });
@@ -1025,7 +1052,50 @@
         const finalPricePerSeat = Math.max(0, BASE_PRICE - currentDiscountPerSeat);
         document.getElementById('total-price').textContent = count * finalPricePerSeat;
         
+        updateGuestInputs();
         checkFormValidity();
+    }
+
+    function updateGuestInputs() {
+        const container = document.getElementById('guest-names-container');
+        const count = selectedSeats.length;
+
+        if (count <= 1) {
+            container.classList.add('hidden');
+            container.innerHTML = '';
+            return;
+        }
+
+        container.classList.remove('hidden');
+
+        if (!document.getElementById('guest-names-title')) {
+            container.innerHTML = `
+                <label id="guest-names-title" class="block text-xs text-gray-400 mb-2 border-t border-gray-700 pt-3">Guest Names (Required for Entry)</label>
+                <div id="guest-inputs-wrapper" class="space-y-2"></div>
+            `;
+        }
+
+        const wrapper = document.getElementById('guest-inputs-wrapper');
+        const currentInputs = wrapper.querySelectorAll('.guest-name-input');
+        const targetInputCount = count - 1;
+
+        // Remove extra inputs if user deselected seats
+        if (currentInputs.length > targetInputCount) {
+            for (let i = currentInputs.length - 1; i >= targetInputCount; i--) {
+                currentInputs[i].remove();
+            }
+        }
+
+        // Add missing inputs
+        for (let i = currentInputs.length; i < targetInputCount; i++) {
+            const input = document.createElement('input');
+            input.type = "text";
+            input.className = "guest-name-input w-full px-3 py-2 bg-[#111] border border-gray-700 rounded text-sm text-white focus:border-movie-accent outline-none";
+            input.placeholder = `Guest ${i + 1} Full Name`;
+            input.required = true;
+            input.addEventListener('input', checkFormValidity);
+            wrapper.appendChild(input);
+        }
     }
 
     function checkFormValidity() {
@@ -1042,7 +1112,12 @@
             waValid = waInput.value.trim().length >= 10;
         }
         
-        btnProceed.disabled = !(hasSeats && name && studentId && dept && phoneValid && waValid && terms);
+        let guestsValid = true;
+        document.querySelectorAll('.guest-name-input').forEach(input => {
+            if (input.value.trim() === '') guestsValid = false;
+        });
+        
+        btnProceed.disabled = !(hasSeats && name && studentId && dept && phoneValid && waValid && terms && guestsValid);
     }
 
     ['form-name', 'form-student-id', 'form-department', 'form-phone', 'form-whatsapp'].forEach(id => {
@@ -1191,10 +1266,12 @@
 
             const ticketId = `NIFT-${Date.now().toString().slice(-5)}-${Math.floor(Math.random()*100)}`;
             const waNumber = waCheckbox.checked ? phoneInput.value.trim() : waInput.value.trim();
+            const guestNames = Array.from(document.querySelectorAll('.guest-name-input')).map(input => input.value.trim());
 
             const formData = {
                 ticketId: ticketId,
                 bookerName: document.getElementById('form-name').value.trim(),
+                guestNames: guestNames,
                 phone: phoneInput.value.trim(),
                 whatsapp: waNumber,
                 studentId: document.getElementById('form-student-id').value.trim(),
@@ -1226,6 +1303,8 @@
             // Reset Booking State
             selectedSeats = [];
             document.getElementById('bookingForm').reset();
+            document.getElementById('guest-names-container').innerHTML = '';
+            document.getElementById('guest-names-container').classList.add('hidden');
             waGroup.classList.add('hidden');
             termsCheck.checked = false;
             
@@ -1265,6 +1344,7 @@
                     userTickets[data.ticketId] = {
                         ticketId: data.ticketId,
                         bookerName: data.bookerName,
+                        guestNames: data.guestNames || [],
                         seats: [],
                         timestamp: data.timestamp,
                         amountPaid: data.paidAmount || 0, // Fallback if saved earlier
@@ -1295,6 +1375,10 @@
             const qrData = encodeURIComponent(`TICKET:${tk.ticketId}|SEATS:${tk.seats.join(',')}|NAME:${tk.bookerName}`);
             const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrData}&color=000000&bgcolor=ffffff`;
 
+            const guestHtml = tk.guestNames.length > 0 
+                ? `<p class="text-sm text-gray-400 mb-1">Guests: <span class="text-gray-300">${tk.guestNames.join(', ')}</span></p>` 
+                : '';
+
             const card = document.createElement('div');
             // Give card an ID so we can screenshot it
             card.id = `ticket-card-${tk.ticketId}`;
@@ -1308,8 +1392,9 @@
                 <div class="flex-grow w-full text-center md:text-left border-t md:border-t-0 md:border-l border-gray-700 pt-4 md:pt-0 md:pl-6">
                     <div class="text-movie-accent text-xs font-bold tracking-widest mb-1 uppercase">Admit ${tk.seats.length}</div>
                     <h4 class="text-2xl font-black text-white mb-1">Seats: ${tk.seats.sort().join(', ')}</h4>
-                    <p class="text-sm text-gray-400 mb-4">Ticket ID: <span class="font-mono text-gray-300">${tk.ticketId}</span></p>
-                    <div class="grid grid-cols-2 gap-3 text-xs text-left">
+                    <p class="text-sm text-gray-400 mb-1">Ticket ID: <span class="font-mono text-gray-300">${tk.ticketId}</span></p>
+                    ${guestHtml}
+                    <div class="grid grid-cols-2 gap-3 text-xs text-left mt-3">
                         <div class="bg-[#111] p-2 rounded border border-gray-800">
                             <span class="block text-gray-500 mb-0.5">Booked On</span>
                             <span class="text-gray-300 font-medium">${dateStr}</span>
