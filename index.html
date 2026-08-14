@@ -111,6 +111,24 @@
     .tkt-hero-placeholder:before{display:none}
     .tkt-hero-placeholder .tkt-hero-mark{position:absolute;right:14px;bottom:10px;width:64px;height:64px;opacity:.16;z-index:0}
     .tkt-hero-in{position:relative;z-index:1}
+
+    /* ---------- Login hero: a "movie night" cinematic strip, not a video file,
+       but a slow-moving backdrop reads the same way at a fraction of the cost. ---------- */
+    #login-hero{background-color:var(--navy)}
+    .login-hero-bg{position:absolute;inset:0;background-size:cover;background-position:center 20%;
+      animation:kenburns 20s ease-in-out infinite alternate}
+    @keyframes kenburns{0%{transform:scale(1) translate(0,0)}100%{transform:scale(1.1) translate(-1.5%,-1%)}}
+    .login-hero-overlay{position:absolute;inset:0;
+      background:linear-gradient(180deg,rgba(12,14,20,.55) 0%,rgba(12,14,20,.72) 60%,var(--bg) 100%)}
+    /* No poster set — an animated gradient instead of a static image keeps the
+       "alive" feel without needing artwork yet. */
+    .login-hero-placeholder .login-hero-bg{
+      background-image:linear-gradient(120deg,var(--navy),#3a2d55,var(--pink),#3a2d55,var(--navy));
+      background-size:300% 300%;animation:gradientshift 14s ease-in-out infinite}
+    @keyframes gradientshift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+    .login-hero-play{animation:playpulse 2.6s ease-in-out infinite}
+    @keyframes playpulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.25)}50%{box-shadow:0 0 0 10px rgba(255,255,255,0)}}
+
     .tkt-perf{border-top:2px dashed #dcdcdc;position:relative}
     .tkt-perf:before,.tkt-perf:after{content:"";position:absolute;top:-11px;width:20px;height:20px;border-radius:50%;background:var(--bg)}
     .tkt-perf:before{left:-11px}
@@ -178,8 +196,20 @@
 
 <!-- ══════════════ LOGIN ══════════════ -->
 <section id="view-login" class="view">
-  <div class="max-w-md mx-auto px-4 py-12">
-    <div class="bg-white rounded-xl border border-[var(--line)] p-7 shadow-sm">
+  <div id="login-hero" class="relative overflow-hidden login-hero-placeholder">
+    <div id="login-hero-bg" class="login-hero-bg"></div>
+    <div class="login-hero-overlay"></div>
+    <div class="relative z-10 max-w-2xl mx-auto px-4 pt-14 pb-20 sm:pt-20 sm:pb-28 text-center text-white">
+      <p class="text-[11px] uppercase tracking-[3px] text-white/60 font-bold mb-3">APC Movie Night</p>
+      <h2 id="login-hero-title" class="text-[34px] sm:text-[48px] font-black leading-none mb-4">Shershaah</h2>
+      <button onclick="openHowTo()" class="w-14 h-14 rounded-full bg-white/15 hover:bg-white/25 border border-white/30 flex items-center justify-center mx-auto mb-4 cursor-pointer transition-colors login-hero-play" aria-label="How booking works">
+        <svg class="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <p id="login-hero-sub" class="text-[13px] text-white/70">NIFT Auditorium · Sat, 15 Aug · 10:00 PM</p>
+    </div>
+  </div>
+  <div class="max-w-md mx-auto px-4 pb-12 -mt-10 relative z-10">
+    <div class="bg-white rounded-xl border border-[var(--line)] p-7 shadow-lg">
 
       <div id="step-auth">
         <h1 id="auth-title" class="text-[22px] font-bold text-[var(--navy)] mb-1">Sign in</h1>
@@ -613,6 +643,74 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&l
 const STARTUP_JITTER_MS = 900;
 const jitter = () => new Promise(r => setTimeout(r, Math.random() * STARTUP_JITTER_MS));
 
+/* The QR library loads from a CDN in <head>. If that request is blocked or
+   slow on a given network (campus wifi is a common offender), window.QRCode
+   never appears and every ticket's QR silently fails to render — the ticket
+   still looks fine except for a broken-image icon, which is easy to miss until
+   someone's stuck at the gate. ensureQRCode() gives it a second CDN to try
+   before giving up, so a single blocked host doesn't take the feature down. */
+function loadScriptOnce(url) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = url;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('script load failed: ' + url));
+    document.head.appendChild(s);
+  });
+}
+const QR_LIB_URLS = [
+  'https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js',
+  'https://unpkg.com/qrcode@1.5.4/build/qrcode.min.js'
+];
+let qrLibPromise = null;
+function ensureQRCode() {
+  if (window.QRCode) return Promise.resolve(true);
+  if (qrLibPromise) return qrLibPromise;
+  qrLibPromise = (async () => {
+    for (const url of QR_LIB_URLS) {
+      if (window.QRCode) return true;
+      try { await loadScriptOnce(url); } catch (e) { console.warn('QR library:', e.message); }
+    }
+    return !!window.QRCode;
+  })();
+  return qrLibPromise;
+}
+
+/* Fills a ticket's QR slot, or — if every CDN failed — replaces it with the
+   booking ID in plain text so the ticket still works at the gate: a volunteer
+   can look it up manually instead of the guest hitting a dead end. */
+async function renderTicketQr(img) {
+  const ok = await ensureQRCode();
+  if (!ok) {
+    const box = img.closest('div');
+    if (box) box.innerHTML = `<div class="w-24 h-24 flex flex-col items-center justify-center text-center px-1">
+      <p class="text-[9px] text-[var(--muted)] font-semibold leading-tight">QR unavailable<br>show ID at gate</p>
+    </div>`;
+    return;
+  }
+  try { img.src = await QRCode.toDataURL(img.dataset.qr, { width: 240, margin: 1 }); }
+  catch (e) { console.warn('qr render:', e.message); }
+}
+
+/* Same CDN-fallback treatment for the ticket-download tool. */
+const HTML2CANVAS_URLS = [
+  'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+  'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'
+];
+let h2cLibPromise = null;
+function ensureHtml2Canvas() {
+  if (window.html2canvas) return Promise.resolve(true);
+  if (h2cLibPromise) return h2cLibPromise;
+  h2cLibPromise = (async () => {
+    for (const url of HTML2CANVAS_URLS) {
+      if (window.html2canvas) return true;
+      try { await loadScriptOnce(url); } catch (e) { console.warn('html2canvas library:', e.message); }
+    }
+    return !!window.html2canvas;
+  })();
+  return h2cLibPromise;
+}
+
 function toast(msg, kind = 'ok') {
   const t = $('toast');
   t.textContent = msg;
@@ -757,8 +855,16 @@ $('verify-check').addEventListener('click', async () => {
   const btn = $('verify-check');
   btn.disabled = true; btn.textContent = 'Checking…';
   await reload(auth.currentUser);
-  if (auth.currentUser.emailVerified) { toast('Email verified.'); go('seats'); }
-  else authErr('Not verified yet — open the link in your inbox (check spam).');
+  if (auth.currentUser.emailVerified) {
+    toast('Email verified.');
+    // reload() refreshes Firebase's cached user but does NOT re-fire
+    // onAuthStateChanged, so the app's own signed-in state has to be applied
+    // here directly -- otherwise the seat map *looks* usable but `user` is
+    // still null underneath, and the first seat click bounces back to login.
+    enterApp(auth.currentUser);
+  } else {
+    authErr('Not verified yet — open the link in your inbox (check spam).');
+  }
   btn.disabled = false; btn.textContent = "I've verified — continue";
 });
 
@@ -775,29 +881,36 @@ $('logout-btn').addEventListener('click', async () => {
   toast('Signed out.');
 });
 
+/* Shared with the manual post-reload path in the verify-check handler above,
+   so both ways of becoming "signed in" apply the exact same state. */
+function enterApp(u) {
+  user = u;
+  $('nav-out').classList.add('hidden');
+  $('nav-in').classList.remove('hidden');
+  $('nav-in').classList.add('flex');
+  $('menu-email').textContent = u.email;
+  $('avatar').textContent = (u.email[0] || '?').toUpperCase();
+  $('f-email').value = u.email;
+  bindBookings();
+  if ($('view-login').classList.contains('active')) go('seats');
+  renderMap();
+}
+
+function exitApp(u) {
+  user = null;
+  selected = []; heldSeats = [];
+  $('nav-out').classList.remove('hidden');
+  $('nav-in').classList.add('hidden');
+  $('nav-in').classList.remove('flex');
+  myBookings = {}; bookingsBound = false;
+  if (u && !u.emailVerified) { go('login'); showVerify(u.email); }
+  else { showAuth(); if ($('view-tickets').classList.contains('active')) go('seats'); }
+  renderMap(); updateBar();
+}
+
 onAuthStateChanged(auth, u => {
-  if (u && u.emailVerified) {
-    user = u;
-    $('nav-out').classList.add('hidden');
-    $('nav-in').classList.remove('hidden');
-    $('nav-in').classList.add('flex');
-    $('menu-email').textContent = u.email;
-    $('avatar').textContent = (u.email[0] || '?').toUpperCase();
-    $('f-email').value = u.email;
-    bindBookings();
-    if ($('view-login').classList.contains('active')) go('seats');
-    renderMap();
-  } else {
-    user = null;
-    selected = []; heldSeats = [];
-    $('nav-out').classList.remove('hidden');
-    $('nav-in').classList.add('hidden');
-    $('nav-in').classList.remove('flex');
-    myBookings = {}; bookingsBound = false;
-    if (u && !u.emailVerified) { go('login'); showVerify(u.email); }
-    else { showAuth(); if ($('view-tickets').classList.contains('active')) go('seats'); }
-    renderMap(); updateBar();
-  }
+  if (u && u.emailVerified) enterApp(u);
+  else exitApp(u);
 });
 
 /* ────────── Live data ────────── */
@@ -818,6 +931,7 @@ onValue(ref(db, 'settings'), snap => {
   posterUrl = ev.posterUrl || '';
   document.title = ev.title + ' — Book Tickets';
   renderClubIntro();
+  renderLoginHero(ev);
   renderTickets();   // no-op unless My Tickets is the active view; poster may have just changed
 
   bookingOpen = s.bookingStatus !== 'closed';
@@ -841,6 +955,13 @@ function renderClubIntro() {
       <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
       ${esc(pt)}
     </span>`).join('');
+}
+
+function renderLoginHero(ev) {
+  $('login-hero').classList.toggle('login-hero-placeholder', !posterUrl);
+  $('login-hero-bg').style.backgroundImage = posterUrl ? `url('${posterUrl}')` : '';
+  $('login-hero-title').textContent = ev.title;
+  $('login-hero-sub').textContent = `${ev.venue} · ${ev.date} · ${ev.time}`;
 }
 
 function refreshCountdown() {
@@ -1258,9 +1379,18 @@ $('co-next').addEventListener('click', async () => {
   payment = { account, amount };
 
   const upi = `upi://pay?pa=${encodeURIComponent(account.upiId)}&pn=${encodeURIComponent(account.payeeName)}&am=${amount}.00&cu=INR&tn=${encodeURIComponent('NIFT Movie Night')}`;
-  try {
-    $('upi-qr').src = await QRCode.toDataURL(upi, { width: 320, margin: 1 });
-  } catch (e) { console.warn('qr', e.message); }
+  if (await ensureQRCode()) {
+    try { $('upi-qr').src = await QRCode.toDataURL(upi, { width: 320, margin: 1 }); }
+    catch (e) { console.warn('qr', e.message); }
+  } else {
+    // No QR lib reachable — the UPI link still works if the student opens it
+    // directly, so surface that instead of leaving a blank box.
+    $('upi-qr').replaceWith(Object.assign(document.createElement('div'), {
+      id: 'upi-qr',
+      className: 'w-40 h-40 mx-auto mb-2 flex items-center justify-center text-center text-[11px] text-[var(--muted)] font-semibold border border-dashed border-[var(--line)] rounded-lg px-3',
+      textContent: 'QR unavailable — use the "Open UPI app" button below.'
+    }));
+  }
 
   $('upi-name').textContent = account.payeeName;
   $('upi-id').textContent = account.upiId;
@@ -1463,11 +1593,7 @@ function renderTickets() {
   });
 
   // Render QR codes locally (no third party ever sees a ticket ID)
-  list.querySelectorAll('.qr-slot').forEach(img => {
-    QRCode.toDataURL(img.dataset.qr, { width: 240, margin: 1 })
-      .then(url => { img.src = url; })
-      .catch(e => console.warn('qr', e.message));
-  });
+  list.querySelectorAll('.qr-slot').forEach(renderTicketQr);
 
   list.querySelectorAll('[data-dl]').forEach(btn => {
     btn.addEventListener('click', () => downloadTicket(btn.dataset.dl));
@@ -1558,10 +1684,7 @@ window.viewTicket = function (id) {
   box.appendChild(clone);
 
   // Cloned <img> keeps its src, but the QR was drawn after render — re-draw it.
-  clone.querySelectorAll('.qr-slot').forEach(img => {
-    QRCode.toDataURL(img.dataset.qr, { width: 320, margin: 1 })
-      .then(url => { img.src = url; }).catch(() => {});
-  });
+  clone.querySelectorAll('.qr-slot').forEach(renderTicketQr);
   clone.querySelectorAll('[data-view]').forEach(b => b.remove());
   clone.querySelectorAll('[data-dl]').forEach(b => {
     b.textContent = 'Download';
@@ -1571,10 +1694,14 @@ window.viewTicket = function (id) {
   $('m-ticket').classList.add('open');
 };
 
-function downloadTicket(id) {
+async function downloadTicket(id) {
   const el = $('tkt-' + id);
   if (!el) return;
   toast('Generating image…');
+  if (!(await ensureHtml2Canvas())) {
+    toast('Could not load the image tool — take a screenshot instead.', 'err');
+    return;
+  }
   // useCORS lets the poster into the PNG when its host allows it; if it doesn't,
   // html2canvas simply skips the artwork and the rest of the ticket still saves.
   html2canvas(el, { backgroundColor: '#ffffff', scale: 2, useCORS: true, imageTimeout: 6000 })

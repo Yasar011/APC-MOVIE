@@ -99,9 +99,21 @@
       Syncing tickets…
     </div>
     <div id="reader"></div>
-    <p class="text-[11.5px] text-[var(--muted)] text-center mt-4 leading-snug">
+    <p id="reader-hint" class="text-[11.5px] text-[var(--muted)] text-center mt-4 leading-snug">
       Point the camera at the QR code on the guest's ticket. Verify the name and seats before letting them in.
     </p>
+    <div id="reader-error" class="hidden text-[12.5px] text-center text-[var(--pink)] font-medium bg-[#fff5f7] border border-[#ffd9e1] rounded-lg px-3 py-2 mb-1">
+      Camera scanner couldn't load. Enter the ticket ID below instead.
+    </div>
+
+    <div class="card p-4 mt-4">
+      <label class="lbl">Or enter ticket ID manually</label>
+      <div class="flex gap-2">
+        <input id="manual-id" class="fld uppercase" placeholder="NIFT-XXXXXXXX-XXX" autocomplete="off">
+        <button id="manual-lookup" class="btn-pink px-4 text-[13px] whitespace-nowrap">Look up</button>
+      </div>
+      <p id="manual-id-err" class="hidden text-[11.5px] text-[var(--pink)] font-semibold mt-2"></p>
+    </div>
   </section>
 
   <!-- RESULT -->
@@ -180,6 +192,32 @@ function toast(msg, kind = 'ok') {
   t.classList.add('show');
   clearTimeout(t._t);
   t._t = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+/* The camera scanner library loads from a CDN. If that's blocked or slow on a
+   given network, the reader silently never appears -- give it a second CDN,
+   and if both fail, fall back to the manual entry box below the reader rather
+   than leaving gate staff stuck. */
+function loadScriptOnce(url) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = url;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('script load failed: ' + url));
+    document.head.appendChild(s);
+  });
+}
+const SCANNER_LIB_URLS = [
+  'https://unpkg.com/html5-qrcode',
+  'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js'
+];
+async function ensureScannerLib() {
+  if (window.Html5QrcodeScanner) return true;
+  for (const url of SCANNER_LIB_URLS) {
+    if (window.Html5QrcodeScanner) return true;
+    try { await loadScriptOnce(url); } catch (e) { console.warn('scanner library:', e.message); }
+  }
+  return !!window.Html5QrcodeScanner;
 }
 
 /* ────────── Auth + role gate ────────── */
@@ -299,8 +337,16 @@ function join() {
 }
 
 /* ────────── Scanner ────────── */
-function initScanner() {
+async function initScanner() {
   if (scanner) return;
+  const ok = await ensureScannerLib();
+  if (!ok) {
+    // Camera scanner never loaded -- the manual entry box below still works,
+    // so say so instead of leaving a blank box where the reader should be.
+    $('reader-hint').classList.add('hidden');
+    $('reader-error').classList.remove('hidden');
+    return;
+  }
   scanner = new Html5QrcodeScanner('reader', {
     fps: 10,
     qrbox: { width: 250, height: 250 },
@@ -312,25 +358,39 @@ function initScanner() {
 
 function onScan(text) {
   const m = String(text).match(/TICKET:(NIFT-[A-Za-z0-9-]{1,36})/);
-  if (!m) return;
+  if (m) openTicket(m[1]);
+}
 
-  const id = m[1];
-  if (id === currentId && !$('v-result').classList.contains('hidden')) return;
-
-  try { scanner.pause(true); } catch {}
+/* Shared by the camera scanner and the manual ticket-ID box, so a damaged QR,
+   a dead camera, or a blocked CDN never actually stops someone getting in. */
+function openTicket(id) {
+  if (id === currentId && !$('v-result').classList.contains('hidden')) return true;
+  try { scanner?.pause(true); } catch {}
 
   const t = tickets.find(x => x.ticketId === id);
   if (!t) {
     currentId = null;
     toast('Invalid or cancelled ticket.', 'err');
-    setTimeout(() => { try { scanner.resume(); } catch {} }, 1400);
-    return;
+    setTimeout(() => { try { scanner?.resume(); } catch {} }, 1400);
+    return false;
   }
 
   currentId = id;
   paintResult(t);
   show('result');
+  return true;
 }
+
+$('manual-lookup').addEventListener('click', () => {
+  const raw = $('manual-id').value.trim().toUpperCase();
+  const err = $('manual-id-err');
+  if (!raw) return;
+
+  const id = raw.startsWith('NIFT-') ? raw : 'NIFT-' + raw;
+  if (openTicket(id)) { $('manual-id').value = ''; err.classList.add('hidden'); }
+  else { err.textContent = `No ticket found for ${id}.`; err.classList.remove('hidden'); }
+});
+$('manual-id').addEventListener('keydown', e => { if (e.key === 'Enter') $('manual-lookup').click(); });
 
 function paintResult(t) {
   $('res-id').textContent = t.ticketId;
@@ -408,7 +468,8 @@ $('res-checkin').addEventListener('click', async () => {
 $('res-next').addEventListener('click', () => {
   currentId = null;
   show('scan');
-  try { scanner.resume(); } catch {}
+  $('manual-id-err').classList.add('hidden');
+  try { scanner?.resume(); } catch {}
 });
 </script>
 </body>
