@@ -1,0 +1,126 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "roles": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid"
+      }
+    },
+
+    "settings": {
+      ".read": true,
+      ".write": "auth != null && root.child('roles').child(auth.uid).val() === 'admin'",
+      "bookingStatus": {
+        ".validate": "newData.isString() && (newData.val() === 'open' || newData.val() === 'closed')"
+      },
+      "pricing": {
+        "$tier": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
+        }
+      },
+      "event": {
+        "$field": {
+          ".validate": "newData.isString() && newData.val().length <= 120"
+        }
+      },
+      "$other": { ".validate": false }
+    },
+
+    "promoCodes": {
+      ".read": "auth != null && root.child('roles').child(auth.uid).val() === 'admin'",
+      ".write": "auth != null && root.child('roles').child(auth.uid).val() === 'admin'",
+
+      "$code": {
+        ".read": true,
+
+        "discount": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
+        },
+        "limit": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "used": {
+          ".write": "auth != null",
+          ".validate": "newData.isNumber() && newData.val() >= 0 && (root.child('roles').child(auth.uid).val() === 'admin' || (((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1)) && (!root.child('promoCodes').child($code).child('limit').exists() || newData.val() <= root.child('promoCodes').child($code).child('limit').val())))"
+        },
+        "$other": { ".validate": false }
+      }
+    },
+
+    "movieSeats": {
+      ".read": true,
+
+      "$seatId": {
+        ".write": "auth != null && ( root.child('roles').child(auth.uid).val() === 'admin' || (!data.exists() && newData.child('userId').val() === auth.uid) || (data.exists() && data.child('userId').val() === auth.uid && data.child('status').val() === 'held') || (data.exists() && data.child('status').val() === 'held' && data.child('expiresAt').val() < now) )",
+
+        ".validate": "newData.hasChildren(['status'])",
+
+        "status": {
+          ".validate": "newData.isString() && ( newData.val() === 'held' || newData.val() === 'occupied' || (newData.val() === 'blocked' && root.child('roles').child(auth.uid).val() === 'admin') )"
+        },
+        "userId": {
+          ".validate": "newData.isString() && (newData.val() === auth.uid || root.child('roles').child(auth.uid).val() === 'admin')"
+        },
+        "ticketId": {
+          ".validate": "newData.isString() && newData.val().length <= 40"
+        },
+        "expiresAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "blockedAt": {
+          ".validate": "newData.isNumber() && root.child('roles').child(auth.uid).val() === 'admin'"
+        },
+        "verificationStatus": {
+          ".write": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'staff')",
+          ".validate": "newData.isString() && ( newData.val() === 'pending' || ((newData.val() === 'approved' || newData.val() === 'rejected') && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'staff')) )"
+        },
+        "checkedIn": {
+          ".write": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'staff')",
+          ".validate": "newData.isBoolean() && ( newData.val() === false || root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'staff' )"
+        },
+
+        "$other": { ".validate": false }
+      }
+    },
+
+    "bookings": {
+      ".read": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'staff')",
+
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && (auth.uid === $uid || root.child('roles').child(auth.uid).val() === 'admin')",
+
+        "$ticketId": {
+          ".write": "auth != null && ((auth.uid === $uid && !data.exists()) || root.child('roles').child(auth.uid).val() === 'admin')",
+          ".validate": "!newData.exists() || newData.hasChildren(['ticketId', 'userId', 'bookerName', 'seats', 'paidAmount', 'createdAt'])",
+
+          "ticketId":       { ".validate": "newData.isString() && newData.val() === $ticketId" },
+          "userId":         { ".validate": "newData.isString() && (newData.val() === $uid)" },
+          "email":          { ".validate": "newData.isString() && newData.val().length <= 120" },
+          "bookerName":     { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80" },
+          "phone":          { ".validate": "newData.isString() && newData.val().length <= 20" },
+          "whatsapp":       { ".validate": "newData.isString() && newData.val().length <= 20" },
+          "studentId":      { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "department":     { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "utr":            { ".validate": "newData.isString() && newData.val().length <= 60" },
+          "screenshotUrl":  { ".validate": "newData.isString() && newData.val().beginsWith('https://') && newData.val().length <= 500" },
+          "paidAmount":     { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
+          "payeeUsed":      { ".validate": "newData.isString() && newData.val().length <= 80" },
+          "promoCode":      { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "createdAt":      { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "guestNames": {
+            "$i": { ".validate": "newData.isString() && newData.val().length <= 80" }
+          },
+          "seats": {
+            ".validate": "newData.hasChildren()",
+            "$i": { ".validate": "newData.isString() && newData.val().length <= 8" }
+          },
+
+          "$other": { ".validate": false }
+        }
+      }
+    }
+  }
+}
