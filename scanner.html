@@ -123,7 +123,7 @@
 
         <div class="grid grid-cols-2 gap-3 pt-3 border-t border-[var(--line)]">
           <div>
-            <p class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold">Paid</p>
+            <p id="res-paid-label" class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold">Paid</p>
             <p id="res-paid" class="text-[14px] font-bold text-[var(--navy)]"></p>
           </div>
           <div>
@@ -228,15 +228,22 @@ function show(v) {
 }
 
 /* ────────── Live data ────────── */
+// Spread the first read slightly so several volunteers opening the gate app at
+// the same time don't all pull the full ticket list on the same tick.
+const jitter = () => new Promise(r => setTimeout(r, Math.random() * 600));
+
 function bindData() {
   if (bound) return;
   bound = true;
 
-  onValue(ref(db, 'movieSeats'), s => { seats = s.val() || {}; join(); },
-    e => { console.warn(e.message); toast('Could not read the seat map.', 'err'); });
+  (async () => {
+    await jitter();
+    onValue(ref(db, 'movieSeats'), s => { seats = s.val() || {}; join(); },
+      e => { console.warn(e.message); toast('Could not read the seat map.', 'err'); });
 
-  onValue(ref(db, 'bookings'), s => { bookings = s.val() || {}; join(); },
-    e => { console.warn(e.message); toast('Could not read bookings.', 'err'); });
+    onValue(ref(db, 'bookings'), s => { bookings = s.val() || {}; join(); },
+      e => { console.warn(e.message); toast('Could not read bookings.', 'err'); });
+  })();
 }
 
 function join() {
@@ -310,7 +317,8 @@ function paintResult(t) {
   $('res-id').textContent = t.ticketId;
   $('res-name').textContent = t.bookerName;
   $('res-seats').textContent = t.seats.join(', ');
-  $('res-paid').textContent = '₹' + t.paidAmount;
+  $('res-paid-label').textContent = t.paidAmount > 0 ? 'Paid' : 'Entry';
+  $('res-paid').textContent = t.paidAmount > 0 ? '₹' + t.paidAmount : 'Free';
   $('res-sid').textContent = t.studentId;
 
   const gbox = $('res-guest-box');
@@ -329,11 +337,13 @@ function paintResult(t) {
     chip.style.cssText = 'background:#fff;color:#2d5bd7';
     btn.disabled = true;
     btn.textContent = 'Already checked in';
-  } else if (t.verificationStatus === 'approved') {
+  } else if (t.verificationStatus === 'approved' || t.paidAmount === 0) {
     banner.style.cssText = 'background:var(--green-soft);border:1px solid #bfe6c8;color:var(--green)';
     $('res-banner-title').textContent = 'VALID TICKET';
-    $('res-banner-sub').textContent = 'Payment verified — safe to let them in.';
-    chip.textContent = 'VERIFIED';
+    $('res-banner-sub').textContent = t.paidAmount === 0
+      ? 'Free entry — safe to let them in.'
+      : 'Payment verified — safe to let them in.';
+    chip.textContent = t.paidAmount === 0 ? 'FREE ENTRY' : 'VERIFIED';
     chip.style.cssText = 'background:#fff;color:var(--green)';
     btn.disabled = false;
     btn.textContent = 'Check in';
@@ -359,7 +369,8 @@ function paintResult(t) {
 $('res-checkin').addEventListener('click', async () => {
   const t = tickets.find(x => x.ticketId === currentId);
   if (!t) return;
-  if (t.verificationStatus !== 'approved' && !confirm('This payment has not been verified by an organiser.\n\nCheck this guest in anyway?')) return;
+  if (t.paidAmount > 0 && t.verificationStatus !== 'approved' &&
+      !confirm('This payment has not been verified by an organiser.\n\nCheck this guest in anyway?')) return;
 
   const btn = $('res-checkin');
   btn.disabled = true; btn.textContent = 'Checking in…';

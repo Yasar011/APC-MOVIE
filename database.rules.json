@@ -15,6 +15,9 @@
       "bookingStatus": {
         ".validate": "newData.isString() && (newData.val() === 'open' || newData.val() === 'closed')"
       },
+      "bookingOpensAt": {
+        ".validate": "newData.isNumber() && newData.val() >= 0"
+      },
       "pricing": {
         "$tier": {
           ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
@@ -53,7 +56,7 @@
       ".read": true,
 
       "$seatId": {
-        ".write": "auth != null && ( root.child('roles').child(auth.uid).val() === 'admin' || (!data.exists() && newData.child('userId').val() === auth.uid) || (data.exists() && data.child('userId').val() === auth.uid && data.child('status').val() === 'held') || (data.exists() && data.child('status').val() === 'held' && data.child('expiresAt').val() < now) )",
+        ".write": "auth != null && ( root.child('roles').child(auth.uid).val() === 'admin' || ( (!root.child('settings').child('bookingOpensAt').exists() || now >= root.child('settings').child('bookingOpensAt').val()) && root.child('settings').child('bookingStatus').val() !== 'closed' && ( (!data.exists() && newData.child('userId').val() === auth.uid) || (data.exists() && data.child('userId').val() === auth.uid && data.child('status').val() === 'held') || (data.exists() && data.child('status').val() === 'held' && data.child('expiresAt').val() < now) ) ) )",
 
         ".validate": "newData.hasChildren(['status'])",
 

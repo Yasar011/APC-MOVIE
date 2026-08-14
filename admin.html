@@ -204,8 +204,24 @@
         <div><label class="lbl">Show time</label><input id="ev-time" class="fld" placeholder="6:30 PM"></div>
       </div>
 
+      <h3 class="text-[14px] font-bold text-[var(--navy)] mb-1">Booking window</h3>
+      <p class="text-[12px] text-[var(--muted)] mb-3">
+        Students can browse the seat map and sign in at any time, but cannot claim a seat until this moment.
+        Enforced by the database rules, so a wrong clock on a phone can't get around it. Leave blank to allow booking immediately.
+      </p>
+      <div class="grid md:grid-cols-3 gap-3 mb-2">
+        <div class="md:col-span-2">
+          <label class="lbl">Booking opens at</label>
+          <input id="ev-opensat" type="datetime-local" class="fld">
+        </div>
+        <div class="flex items-end">
+          <button id="opens-clear" class="btn-ghost w-full px-4 py-2 text-[12.5px]">Clear (open now)</button>
+        </div>
+      </div>
+      <p id="opens-state" class="text-[12px] font-semibold mb-5"></p>
+
       <h3 class="text-[14px] font-bold text-[var(--navy)] mb-1">Seat pricing</h3>
-      <p class="text-[12px] text-[var(--muted)] mb-3">Rows A–B are Premium, C–E Executive, F–H Classic. Students are charged per seat by tier.</p>
+      <p class="text-[12px] text-[var(--muted)] mb-3">Rows A–B are Premium, C–E Executive, F–H Classic. Leave all three at <b>0</b> for a free show — students then skip the payment step entirely.</p>
       <div class="grid md:grid-cols-3 gap-3 mb-5">
         <div><label class="lbl">Premium (A–B) ₹</label><input id="pr-premium" type="number" min="0" class="fld"></div>
         <div><label class="lbl">Executive (C–E) ₹</label><input id="pr-executive" type="number" min="0" class="fld"></div>
@@ -265,8 +281,9 @@ const db = getDatabase(app);
 
 const ROWS = ['A','B','C','D','E','F','G','H'];
 const SEATS_PER_ROW = 30;
-const DEFAULT_PRICING = { premium: 25, executive: 25, classic: 25 };
-const DEFAULT_EVENT = { title: 'NIFT Movie Night', language: 'Hindi', format: '2D', venue: 'NIFT Auditorium', date: 'TBA', time: 'TBA' };
+const DEFAULT_PRICING = { premium: 0, executive: 0, classic: 0 };
+const DEFAULT_EVENT = { title: 'Dhurandhar', language: 'Hindi', format: '2D', venue: 'NIFT Auditorium', date: 'TBA', time: 'TBA' };
+const money = n => n > 0 ? '₹' + n : 'Free';
 
 let me = null;
 let seats = {};
@@ -274,6 +291,7 @@ let bookings = {};        // uid -> ticketId -> record
 let promos = {};
 let tickets = [];         // joined view
 let bound = false;
+let opensAt = 0;
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
@@ -363,7 +381,34 @@ function bindData() {
     ['title','language','format','venue','date','time'].forEach(k => { $('ev-' + k).value = ev[k]; });
     const pr = { ...DEFAULT_PRICING, ...(v.pricing || {}) };
     ['premium','executive','classic'].forEach(k => { $('pr-' + k).value = pr[k]; });
+
+    opensAt = Number(v.bookingOpensAt || 0);
+    $('ev-opensat').value = opensAt ? toLocalInput(opensAt) : '';
+    paintOpensState();
   }, dbErr);
+}
+
+/* <input type="datetime-local"> speaks local wall-clock time with no zone, so
+   convert both ways through the local offset rather than via toISOString. */
+function toLocalInput(ms) {
+  const d = new Date(ms - new Date(ms).getTimezoneOffset() * 60000);
+  return d.toISOString().slice(0, 16);
+}
+function paintOpensState() {
+  const el = $('opens-state');
+  if (!opensAt) {
+    el.textContent = 'No scheduled opening — students can book as soon as bookings are set to OPEN.';
+    el.style.color = 'var(--muted)';
+    return;
+  }
+  const when = new Date(opensAt).toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'short' });
+  if (Date.now() < opensAt) {
+    el.textContent = `Booking is locked until ${when}.`;
+    el.style.color = 'var(--amber)';
+  } else {
+    el.textContent = `Booking opened on ${when}.`;
+    el.style.color = 'var(--green)';
+  }
 }
 
 /* Join seat rows with their booking record (falling back to legacy inline data). */
@@ -428,6 +473,8 @@ function renderStats() {
   $('s-revenue').textContent = '₹' + tickets
     .filter(t => t.verificationStatus === 'approved' || t.checkedIn)
     .reduce((n, t) => n + t.paidAmount, 0);
+  // Free bookings need no payment check, so they never sit in "awaiting".
+  $('s-pending').textContent = tickets.filter(t => t.verificationStatus === 'pending' && t.paidAmount > 0).length;
 }
 
 /* ────────── Bookings table ────────── */
@@ -441,7 +488,8 @@ function renderTable() {
 
   let rows = tickets.filter(t => {
     if (filter === 'checkedin' && !t.checkedIn) return false;
-    if (filter !== 'all' && filter !== 'checkedin' && t.verificationStatus !== filter) return false;
+    if (filter === 'pending' && (t.verificationStatus !== 'pending' || t.paidAmount === 0)) return false;
+    if (filter !== 'all' && filter !== 'checkedin' && filter !== 'pending' && t.verificationStatus !== filter) return false;
     if (!term) return true;
     return [t.ticketId, t.bookerName, t.email, t.phone, t.whatsapp, t.studentId, t.utr, t.seats.join(' '), (t.guestNames || []).join(' ')]
       .join(' ').toLowerCase().includes(term);
@@ -454,10 +502,12 @@ function renderTable() {
 
   rows.forEach(t => {
     const when = t.createdAt ? new Date(t.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+    const free = t.paidAmount === 0;
     const badge = t.checkedIn
       ? ['Checked in', 'background:#eaf0ff;color:#2d5bd7']
       : t.verificationStatus === 'approved' ? ['Verified', 'background:var(--green-soft);color:var(--green)']
       : t.verificationStatus === 'rejected' ? ['Rejected', 'background:#ffeaee;color:var(--pink)']
+      : free ? ['Confirmed', 'background:var(--green-soft);color:var(--green)']
       : ['Awaiting check', 'background:var(--amber-soft);color:var(--amber)'];
 
     const tr = document.createElement('tr');
@@ -481,8 +531,8 @@ function renderTable() {
         <div class="text-[11px] text-[var(--muted)]">${t.seats.length} seat${t.seats.length > 1 ? 's' : ''}</div>
       </td>
       <td>
-        <div class="font-bold text-[var(--navy)]">₹${t.paidAmount}</div>
-        <div class="text-[11px] text-[var(--muted)] font-mono">${esc(t.utr || '—')}</div>
+        <div class="font-bold text-[var(--navy)]">${money(t.paidAmount)}</div>
+        ${free ? '' : `<div class="text-[11px] text-[var(--muted)] font-mono">${esc(t.utr || '—')}</div>`}
         ${t.promoCode && t.promoCode !== 'None' ? `<div class="chip mt-1" style="background:#f3ecff;color:#7040c0">${esc(t.promoCode)}</div>` : ''}
       </td>
       <td><span class="chip" style="${badge[1]}">${badge[0]}</span></td>
@@ -499,8 +549,8 @@ function renderTable() {
     };
 
     if (t.screenshotUrl) add('View proof', '', () => viewShot(t));
-    if (!t.checkedIn && t.verificationStatus !== 'approved') add('Verify payment', 'color:var(--green);border-color:#bfe6c8', () => setStatus(t, 'verificationStatus', 'approved'));
-    if (!t.checkedIn && t.verificationStatus === 'approved') add('Mark checked in', 'color:#2d5bd7;border-color:#c3d2f5', () => setStatus(t, 'checkedIn', true));
+    if (!free && !t.checkedIn && t.verificationStatus !== 'approved') add('Verify payment', 'color:var(--green);border-color:#bfe6c8', () => setStatus(t, 'verificationStatus', 'approved'));
+    if (!t.checkedIn && (free || t.verificationStatus === 'approved')) add('Mark checked in', 'color:#2d5bd7;border-color:#c3d2f5', () => setStatus(t, 'checkedIn', true));
     if (t.checkedIn) add('Undo check-in', '', () => setStatus(t, 'checkedIn', false));
     add('Edit seats', '', () => openSeats(t));
     add('Cancel booking', 'color:var(--pink);border-color:#ffd0da', () => cancelTicket(t));
@@ -749,10 +799,24 @@ $('settings-save').addEventListener('click', async () => {
     pricing[k] = v;
   }
 
+  const raw = $('ev-opensat').value;
+  let bookingOpensAt = 0;
+  if (raw) {
+    const ms = new Date(raw).getTime();       // parsed in the browser's local zone
+    if (!Number.isFinite(ms)) return toast('Enter a valid opening date and time.', 'err');
+    bookingOpensAt = ms;
+  }
+
   try {
-    await update(ref(db, 'settings'), { event, pricing });
-    toast('Settings saved.');
+    await update(ref(db, 'settings'), { event, pricing, bookingOpensAt });
+    toast(bookingOpensAt ? 'Saved — booking is scheduled.' : 'Settings saved.');
   } catch (e) { dbErr(e); }
+});
+
+$('opens-clear').addEventListener('click', async () => {
+  if (!confirm('Remove the scheduled opening time?\n\nStudents will be able to book straight away.')) return;
+  try { await set(ref(db, 'settings/bookingOpensAt'), 0); toast('Scheduled opening cleared.'); }
+  catch (e) { dbErr(e); }
 });
 
 /* ────────── CSV export ────────── */
