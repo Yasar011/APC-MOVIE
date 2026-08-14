@@ -243,6 +243,16 @@
       </div>
       <p class="text-[12px] text-[var(--muted)] mb-5 -mt-3">Shown on the booking page and on every ticket, so students know exactly when the doors shut.</p>
 
+      <label class="lbl">Poster image URL</label>
+      <div class="flex gap-3 items-start mb-1">
+        <input id="ev-poster" class="fld" placeholder="https://example.com/poster.jpg">
+        <img id="ev-poster-preview" class="hidden w-16 h-16 object-cover rounded border border-[var(--line)] flex-shrink-0" alt="Poster preview">
+      </div>
+      <p class="text-[11.5px] text-[var(--muted)] mb-5 leading-snug">
+        Shown behind the header on every student's e-ticket. Leave blank to show a plain placeholder instead of
+        the wrong artwork. A direct image link (ending in .jpg/.png) works best; some hosts block hotlinking.
+      </p>
+
       <h3 class="text-[14px] font-bold text-[var(--navy)] mb-1">Club intro</h3>
       <p class="text-[12px] text-[var(--muted)] mb-3">The banner students see above the seat map.</p>
       <div class="grid md:grid-cols-2 gap-3 mb-3">
@@ -341,7 +351,7 @@ const SEATS_PER_ROW = 30;
 const DEFAULT_PRICING = { premium: 0, executive: 0, classic: 0 };
 const DEFAULT_EVENT = {
   title: 'Shershaah', language: 'Hindi', format: '2D', venue: 'NIFT Auditorium',
-  date: 'TBA', time: '10:00 PM', gateOpen: '9:30 PM', gateClose: '9:50 PM'
+  date: 'Sat, 15 Aug', time: '10:00 PM', gateOpen: '9:30 PM', gateClose: '9:50 PM', posterUrl: ''
 };
 const DEFAULT_CLUB = {
   name: 'APC Club', tagline: 'Presented by the APC Club',
@@ -459,6 +469,8 @@ function bindData() {
     ['title','language','format','venue','date','time'].forEach(k => { $('ev-' + k).value = ev[k]; });
     $('ev-gateopen').value  = ev.gateOpen;
     $('ev-gateclose').value = ev.gateClose;
+    $('ev-poster').value = ev.posterUrl || '';
+    updatePosterPreview();
 
     const cl = { ...DEFAULT_CLUB, ...(v.club || {}) };
     const pts = (v.club && v.club.points) || DEFAULT_CLUB.points;
@@ -474,6 +486,17 @@ function bindData() {
     paintOpensState();
   }, dbErr);
 }
+
+function updatePosterPreview() {
+  const url = $('ev-poster').value.trim();
+  const img = $('ev-poster-preview');
+  if (!url) { img.classList.add('hidden'); img.src = ''; return; }
+  img.src = url;
+  img.classList.remove('hidden');
+}
+$('ev-poster').addEventListener('input', updatePosterPreview);
+// A dead link shouldn't sit there looking like it worked.
+$('ev-poster-preview').addEventListener('error', () => $('ev-poster-preview').classList.add('hidden'));
 
 /* <input type="datetime-local"> speaks local wall-clock time with no zone, so
    convert both ways through the local offset rather than via toISOString. */
@@ -985,6 +1008,7 @@ $('settings-save').addEventListener('click', async () => {
   ['title','language','format','venue','date','time'].forEach(k => { event[k] = $('ev-' + k).value.trim().slice(0, 120); });
   event.gateOpen  = $('ev-gateopen').value.trim().slice(0, 120);
   event.gateClose = $('ev-gateclose').value.trim().slice(0, 120);
+  event.posterUrl = $('ev-poster').value.trim().slice(0, 500);
 
   const club = {
     name: $('club-name-in').value.trim().slice(0, 60) || DEFAULT_CLUB.name,

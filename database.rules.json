@@ -24,6 +24,9 @@
         }
       },
       "event": {
+        "posterUrl": {
+          ".validate": "newData.isString() && newData.val().length <= 500"
+        },
         "$field": {
           ".validate": "newData.isString() && newData.val().length <= 120"
         }

@@ -54,7 +54,11 @@
     .rlbl{width:16px;text-align:center;font-size:11px;font-weight:700;color:#9a9a9a;flex-shrink:0}
     .srow .rlbl:first-child{position:sticky;left:0;z-index:2;background:var(--bg)}
     .sblocks{display:flex;align-items:center}
-    .sgap{width:26px;flex-shrink:0}
+    /* An aisle needs to read as clearly different from ordinary seat spacing at
+       a glance, not just be a few px wider — so it gets its own width plus a
+       faint centre line rather than relying on spacing alone. */
+    .sgap{width:38px;flex-shrink:0;position:relative}
+    .sgap:before{content:"";position:absolute;left:50%;top:1px;bottom:1px;width:1px;background:#d5d5d5;transform:translateX(-50%)}
 
     .seat{
       width:24px;height:24px;margin:0 3px;border-radius:4px;flex-shrink:0;
@@ -101,6 +105,11 @@
     .tkt-hero{position:relative;background-color:var(--navy);background-size:cover;background-position:center 22%}
     .tkt-hero:before{content:"";position:absolute;inset:0;
       background:linear-gradient(100deg,rgba(20,24,34,.95) 0%,rgba(20,24,34,.82) 42%,rgba(20,24,34,.45) 100%)}
+    /* No poster set yet — a deliberate gradient + watermark reads as "not
+       uploaded yet", not as a broken image. */
+    .tkt-hero-placeholder{background-image:linear-gradient(115deg,var(--navy) 0%,#3a2d55 55%,var(--pink) 150%)}
+    .tkt-hero-placeholder:before{display:none}
+    .tkt-hero-placeholder .tkt-hero-mark{position:absolute;right:14px;bottom:10px;width:64px;height:64px;opacity:.16;z-index:0}
     .tkt-hero-in{position:relative;z-index:1}
     .tkt-perf{border-top:2px dashed #dcdcdc;position:relative}
     .tkt-perf:before,.tkt-perf:after{content:"";position:absolute;top:-11px;width:20px;height:20px;border-radius:50%;background:var(--bg)}
@@ -551,25 +560,21 @@ const TIERS = [
 const DEFAULT_PRICING = { premium: 0, executive: 0, classic: 0 };
 const DEFAULT_EVENT = {
   title: 'Shershaah', language: 'Hindi', format: '2D', venue: 'NIFT Auditorium',
-  date: 'TBA', time: '10:00 PM', gateOpen: '9:30 PM', gateClose: '9:50 PM'
+  date: 'Sat, 15 Aug', time: '10:00 PM', gateOpen: '9:30 PM', gateClose: '9:50 PM', posterUrl: ''
 };
 const DEFAULT_CLUB = {
   name: 'APC Club', tagline: 'Presented by the APC Club',
   points: ['Student-run, student-picked screenings', 'Free entry for every NIFT student', 'One night, one screen, one big room']
 };
 
-/* Ticket artwork. Each student is assigned one of these deterministically, so
-   their ticket always looks the same to them but the batch isn't uniform.
-   NOTE: these are third-party URLs. They display fine, but a downloaded PNG can
-   only include the artwork if the host allows cross-origin canvas reads. For a
-   guaranteed poster in the download, drop the images into a `posters/` folder in
-   this repo and use relative paths ('posters/1.jpg') instead — same origin, so
-   it always works. */
-const POSTERS = [
-  'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ8e6nf-UYUgedJF5PqLQpeXB9-Gt8cdZ2m72nkJbClUg&s=10',
-  'https://m.media-amazon.com/images/M/MV5BMzFiNTVkZjYtM2I3Yi00MGNjLWEyYTAtMGViNGExZmMzMGMzXkEyXkFqcGc@._V1_QL75_UY562_CR35,0,380,562_.jpg',
-  'https://rukmini1.flixcart.com/image/1500/1500/xif0q/poster/m/p/q/medium-dhurandhar-gritty-cinematic-character-wall-poster-original-imahjmn894rhwqq5.jpeg?q=70'
-];
+/* Ticket poster art. One image for the film, set from admin -> Event & pricing.
+   Until an organiser sets it, tickets show a plain gradient placeholder instead
+   of a broken image or artwork for the wrong movie.
+   NOTE: an externally-hosted URL displays fine, but a downloaded PNG can only
+   include it if that host allows cross-origin canvas reads. For a poster
+   guaranteed to appear in the download, drop the image into a `posters/`
+   folder in this repo and set the field to a relative path ('posters/1.jpg')
+   instead — same origin, so it always works. */
 
 const UPI_ACCOUNTS = [
   { upiId: 'chyasar2004-2@oksbi', payeeName: 'Yasar C H' },
@@ -586,6 +591,7 @@ let club = { ...DEFAULT_CLUB };
 let bookingOpen = true;
 let opensAt = 0;                // epoch ms; booking is browse-only before this
 let countdownTimer = null;
+let posterUrl = '';             // ticket background art; empty = show the placeholder
 let selected = [];
 let wantCount = 2;
 let signUpMode = false;
@@ -809,8 +815,10 @@ onValue(ref(db, 'settings'), snap => {
   $('ev-gate').textContent   = `${ev.gateOpen}–${ev.gateClose}`;
   $('ev-gate-open').textContent  = ev.gateOpen;
   $('ev-gate-close').textContent = ev.gateClose;
+  posterUrl = ev.posterUrl || '';
   document.title = ev.title + ' — Book Tickets';
   renderClubIntro();
+  renderTickets();   // no-op unless My Tickets is the active view; poster may have just changed
 
   bookingOpen = s.bookingStatus !== 'closed';
   opensAt = Number(s.bookingOpensAt || 0);
@@ -1472,9 +1480,10 @@ function renderTickets() {
 /* The e-ticket itself — poster art behind the header, perforated stub below.
    Same markup drives the list card and the full-screen view. */
 function ticketMarkup({ id, b, shown, when, badge, free }) {
-  const poster = posterFor(b.userId || id);
+  const heroStyle = posterUrl ? `style="background-image:url('${esc(posterUrl)}')"` : '';
   return `
-    <div class="tkt-hero" style="background-image:url('${esc(poster)}')">
+    <div class="tkt-hero${posterUrl ? '' : ' tkt-hero-placeholder'}" ${heroStyle}>
+      ${posterUrl ? '' : `<svg class="tkt-hero-mark" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h16M4 8a2 2 0 00-2 2v8a2 2 0 002 2h16a2 2 0 002-2v-8a2 2 0 00-2-2M4 8l2-4h12l2 4M9 8v12m6-12v12"/></svg>`}
       <div class="tkt-hero-in px-5 py-4">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
@@ -1535,14 +1544,6 @@ function ticketMarkup({ id, b, shown, when, badge, free }) {
         <button data-dl="${esc(id)}" class="btn-pink px-3.5 py-1.5 text-[12px]">Download</button>
       </div>
     </div>`;
-}
-
-/* Stable poster per student, so the same person always sees the same artwork. */
-function posterFor(key) {
-  let h = 0;
-  const s = String(key || '');
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return POSTERS[h % POSTERS.length];
 }
 
 window.viewTicket = function (id) {
