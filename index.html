@@ -1325,7 +1325,11 @@ async function finalizeBooking({ amount, utr, file, payeeUsed, btn, busyLabel, i
 
   } catch (e) {
     console.warn('booking:', e.message);
-    toast(e.message || 'Could not complete the booking.', 'err');
+    // A permission error here means the database rules aren't live yet. Students
+    // can't fix that, so tell them plainly instead of showing raw Firebase text.
+    toast(/permission/i.test(e.message || '')
+      ? 'Booking is not set up yet — please tell the organisers (database rules not published).'
+      : (e.message || 'Could not complete the booking.'), 'err');
     startTimer();
   } finally {
     submitting = false;

@@ -79,8 +79,20 @@
     <div class="w-12 h-12 rounded-full bg-[#fff0f3] flex items-center justify-center mx-auto mb-4">
       <svg class="w-6 h-6 text-[var(--pink)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
     </div>
-    <h1 class="text-[19px] font-bold text-[var(--navy)] mb-1">Not an organiser account</h1>
-    <p class="text-[13px] text-[var(--muted)] mb-5">This account is signed in but has no admin role, so the dashboard stays locked.</p>
+    <h1 id="denied-title" class="text-[19px] font-bold text-[var(--navy)] mb-1">Not an organiser account</h1>
+    <p id="denied-sub" class="text-[13px] text-[var(--muted)] mb-5">This account is signed in but has no admin role, so the dashboard stays locked.</p>
+
+    <!-- Shown when the database rules have not been published yet: the app cannot
+         even read roles/, so this is a setup problem, not an account problem. -->
+    <div id="denied-setup" class="hidden bg-[#fff8e6] border border-[#f0dfae] rounded-lg p-4 mb-5 text-left">
+      <p class="text-[12px] font-bold text-[#8a6a12] mb-2">The database rules have not been published.</p>
+      <ol class="list-decimal pl-4 text-[11.5px] text-[#8a6a12] space-y-1.5 leading-snug">
+        <li>Open the <a href="https://console.firebase.google.com/" target="_blank" rel="noopener" class="underline font-semibold">Firebase console</a> → your project → <b>Realtime Database</b> → <b>Rules</b>.</li>
+        <li>Replace everything there with the contents of <code class="bg-white border border-[#f0dfae] px-1 rounded">database.rules.json</code> from the repo, then click <b>Publish</b>.</li>
+        <li>Reload this page.</li>
+      </ol>
+    </div>
+
     <div class="bg-[#fafafa] border border-[var(--line)] rounded-lg p-3 mb-5 text-left">
       <p class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold mb-1">Your user ID</p>
       <p id="denied-uid" class="text-[11.5px] font-mono break-all text-[var(--navy)]"></p>
@@ -336,13 +348,24 @@ onAuthStateChanged(auth, async user => {
     return;
   }
 
-  let role = null;
-  try { role = (await get(ref(db, `roles/${user.uid}`))).val(); }
-  catch (e) { console.warn('role lookup:', e.message); }
+  let role = null, rulesMissing = false;
+  try {
+    role = (await get(ref(db, `roles/${user.uid}`))).val();
+  } catch (e) {
+    console.warn('role lookup:', e.message);
+    // Being denied on roles/ means the rules aren't live yet — a deploy problem,
+    // not "this person isn't an admin". Say which one it actually is.
+    rulesMissing = /permission/i.test(e.message || '');
+  }
 
   if (role !== 'admin') {
     me = null;
     $('denied-uid').textContent = user.uid;
+    $('denied-setup').classList.toggle('hidden', !rulesMissing);
+    $('denied-title').textContent = rulesMissing ? 'Setup not finished' : 'Not an organiser account';
+    $('denied-sub').textContent = rulesMissing
+      ? "The app can't read the roles list, so it can't tell who the organisers are."
+      : 'This account is signed in but has no admin role, so the dashboard stays locked.';
     show('denied');
     $('hdr-user').classList.add('hidden'); $('hdr-user').classList.remove('flex');
     return;

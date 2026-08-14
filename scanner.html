@@ -72,8 +72,15 @@
       <div class="w-12 h-12 rounded-full bg-[#fff0f3] flex items-center justify-center mx-auto mb-4">
         <svg class="w-6 h-6 text-[var(--pink)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
       </div>
-      <h1 class="text-[18px] font-bold text-[var(--navy)] mb-1">No gate access</h1>
-      <p class="text-[12.5px] text-[var(--muted)] mb-5">This account isn't registered as gate staff.</p>
+      <h1 id="denied-title" class="text-[18px] font-bold text-[var(--navy)] mb-1">No gate access</h1>
+      <p id="denied-sub" class="text-[12.5px] text-[var(--muted)] mb-5">This account isn't registered as gate staff.</p>
+      <div id="denied-setup" class="hidden bg-[#fff8e6] border border-[#f0dfae] rounded-lg p-3 mb-5 text-left">
+        <p class="text-[11.5px] text-[#8a6a12] leading-snug">
+          <b>The database rules have not been published.</b> An organiser needs to paste
+          <code class="bg-white border border-[#f0dfae] px-1 rounded">database.rules.json</code>
+          into Firebase → Realtime Database → Rules and hit Publish.
+        </p>
+      </div>
       <div class="bg-[#fafafa] border border-[var(--line)] rounded-lg p-3 mb-5 text-left">
         <p class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold mb-1">Your user ID</p>
         <p id="denied-uid" class="text-[11.5px] font-mono break-all text-[var(--navy)]"></p>
@@ -203,12 +210,21 @@ onAuthStateChanged(auth, async user => {
     return;
   }
 
-  let role = null;
-  try { role = (await get(ref(db, `roles/${user.uid}`))).val(); }
-  catch (e) { console.warn('role lookup:', e.message); }
+  let role = null, rulesMissing = false;
+  try {
+    role = (await get(ref(db, `roles/${user.uid}`))).val();
+  } catch (e) {
+    console.warn('role lookup:', e.message);
+    rulesMissing = /permission/i.test(e.message || '');
+  }
 
   if (role !== 'staff' && role !== 'admin') {
     $('denied-uid').textContent = user.uid;
+    $('denied-setup').classList.toggle('hidden', !rulesMissing);
+    $('denied-title').textContent = rulesMissing ? 'Setup not finished' : 'No gate access';
+    $('denied-sub').textContent = rulesMissing
+      ? "The app can't read the roles list yet."
+      : "This account isn't registered as gate staff.";
     show('denied');
     $('logout-btn').classList.add('hidden');
     return;
