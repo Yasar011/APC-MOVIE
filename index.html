@@ -1,1479 +1,1297 @@
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NIFT Movie Night Booking</title>
+  <title>NIFT Movie Night — Book Tickets</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <!-- html2canvas for Ticket Downloading -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
   <style>
-    /* Global Styles */
-    body {
-        font-family: 'Inter', sans-serif;
-        background-color: #111111;
-        color: #E0E0E0;
+    :root{
+      --pink:#f84464;
+      --pink-dark:#e03654;
+      --navy:#1f2533;
+      --slate:#333545;
+      --green:#1ea83c;
+      --green-soft:#eafaee;
+      --amber:#c47f00;
+      --amber-soft:#fff6e0;
+      --line:#e4e4e4;
+      --muted:#6b6b6b;
+      --bg:#f5f5f5;
     }
-    .text-movie-accent { color: #f5c518; } /* Cinema Gold */
-    .bg-movie-accent { background-color: #f5c518; }
-    .bg-movie-accent:hover { background-color: #d4a710; }
-    
-    .glass-panel {
-      background: rgba(30, 32, 40, 0.85);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
+    *{box-sizing:border-box}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:#222;margin:0;-webkit-font-smoothing:antialiased}
+    .view{display:none}
+    .view.active{display:block}
 
-    /* Original Style Container */
-    .booking-container {
-      background: #1e1e1e;
-      border-radius: 12px;
-      padding: 24px;
-      max-width: 560px; /* Matched to original design width */
-      width: 100%;
-      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
-      border: 1px solid #333;
-      position: relative;
-    }
+    /* ---------- Buttons ---------- */
+    .btn-pink{background:var(--pink);color:#fff;font-weight:700;border-radius:6px;transition:.15s;border:none;cursor:pointer}
+    .btn-pink:hover:not(:disabled){background:var(--pink-dark)}
+    .btn-pink:disabled{opacity:.5;cursor:not-allowed}
+    .btn-ghost{background:#fff;color:var(--pink);border:1px solid var(--pink);font-weight:700;border-radius:6px;cursor:pointer;transition:.15s}
+    .btn-ghost:hover{background:#fff0f3}
 
-    .btn-small-top {
-      position: absolute; top: 16px; padding: 6px 12px;
-      border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
-      background: #333; color: #fff; text-decoration: none; transition: background 0.2s;
-    }
-    .btn-small-top:hover { background: #444; }
-    .btn-help { left: 16px; }
-    .btn-how-to-book { right: 16px; }
+    /* ---------- Inputs ---------- */
+    .fld{width:100%;padding:11px 12px;border:1px solid #d4d4d4;border-radius:6px;font-size:14px;background:#fff;outline:none;transition:.15s;color:#222}
+    .fld:focus{border-color:var(--pink);box-shadow:0 0 0 3px rgba(248,68,100,.1)}
+    .fld:disabled,.fld[readonly]{background:#f2f2f2;color:#777}
+    .lbl{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:5px}
 
-    .header-booking { text-align: center; margin-bottom: 24px; padding-top: 24px; }
-    .header-booking h1 { font-size: 28px; font-weight: 800; color: #fff; letter-spacing: -0.5px;}
-    .header-booking p { font-size: 14px; color: #888; margin-top: 4px; letter-spacing: 1px; text-transform: uppercase;}
+    /* ---------- Seat map ---------- */
+    .map-scroll{overflow-x:auto;overflow-y:visible;padding:8px 0 4px}
+    .map-inner{min-width:max-content;margin:0 auto;padding:0 16px}
+    .cat-head{display:flex;align-items:center;gap:12px;margin:22px 0 14px}
+    /* Label sticks to the left edge so the tier + price stay readable while the
+       map is scrolled sideways on narrow screens. */
+    .cat-head span{position:sticky;left:0;z-index:3;background:var(--bg);padding-right:12px;
+                   font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap;letter-spacing:.3px}
+    .cat-head:after{content:"";flex:1;height:1px;background:var(--line)}
+    .srow{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+    .rlbl{width:16px;text-align:center;font-size:11px;font-weight:700;color:#9a9a9a;flex-shrink:0}
+    .srow .rlbl:first-child{position:sticky;left:0;z-index:2;background:var(--bg)}
+    .sblocks{display:flex;align-items:center}
+    .sgap{width:26px;flex-shrink:0}
 
-    .event-card {
-      background: #2a2a2a; border-radius: 8px; padding: 12px 16px;
-      margin-bottom: 20px; display: flex; justify-content: space-between;
-      align-items: center; font-size: 13px; font-weight: 500; border: 1px solid #333;
+    .seat{
+      width:24px;height:24px;margin:0 3px;border-radius:4px;flex-shrink:0;
+      font-size:9px;font-weight:600;line-height:1;
+      display:flex;align-items:center;justify-content:center;
+      border:1px solid var(--green);color:var(--green);background:#fff;
+      cursor:pointer;transition:.12s;user-select:none;padding:0
     }
+    .seat:hover:not(.sold):not(.blocked):not(.held){background:var(--green);color:#fff;transform:scale(1.14)}
+    .seat.sel{background:var(--green);color:#fff;border-color:var(--green)}
+    .seat.sold{background:#ededed;border-color:#ededed;color:#bdbdbd;cursor:not-allowed}
+    .seat.held{background:var(--amber-soft);border-color:#e6c56a;color:var(--amber);cursor:not-allowed}
+    .seat.blocked{background:#fff;border:1px dashed #d8d8d8;color:#d8d8d8;cursor:not-allowed}
+    .seat.mine{background:var(--green);color:#fff;border-color:var(--green);cursor:not-allowed;position:relative}
 
-    .legend {
-      display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; font-size: 11px; margin-bottom: 16px; font-weight: 500;
-    }
-    .legend-item { display: flex; align-items: center; gap: 6px; color: #aaa; }
-    .legend-color { width: 12px; height: 12px; border-radius: 3px; }
-    
-    .status-available { background: #444; }
-    .status-selected  { background: #f5c518; }
-    .status-occupied  { background: #e62b1e; }
-    .status-reserved  { background: #f39c12; } 
-    .status-held      { background: #8e44ad; } /* Purple for temporarily held by someone else */
+    /* ---------- Screen ---------- */
+    .screen-wrap{margin:34px auto 8px;max-width:520px;text-align:center;padding:0 16px}
+    .screen-bar{height:9px;border-radius:50%/100% 100% 0 0;background:linear-gradient(180deg,#cfcfcf,#f1f1f1);box-shadow:0 -9px 22px rgba(0,0,0,.14)}
+    .screen-cap{font-size:10px;letter-spacing:2.5px;color:#9a9a9a;margin-top:9px;text-transform:uppercase;font-weight:600}
 
-    /* Seat Map Styles */
-    .seating-area {
-      background: #2a2a2a; border-radius: 8px; padding: 16px;
-      margin-bottom: 24px; display: flex; justify-content: center; border: 1px solid #333;
-      position: relative;
-    }
-    .auditorium { display: flex; flex-direction: column; gap: 6px; width: 100%; }
-    #seatingChart { width: 100%; max-height: 40vh; overflow-y: auto; overflow-x: auto; padding-right: 5px; padding-bottom: 5px;}
-    
-    .screen {
-      background: #f5c518; color: #000;
-      padding: 8px 12px; border-radius: 4px; text-align: center;
-      font-weight: 800; font-size: 13px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 3px;
-    }
-    .direction { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 8px; color: #888; font-weight: 600;}
-    .direction span { background: #1e1e1e; color: #aaa; padding: 3px 8px; border-radius: 4px; border: 1px solid #333;}
-    
-    .seat-row { display: flex; align-items: center; width: max-content; margin: 0 auto; }
-    .row-label {
-      width: 16px; text-align: right; margin-right: 6px; font-size: 10px; font-weight: 700; color: #888;
-    }
-    .seats { display: flex; flex-wrap: nowrap; }
-    .seat {
-      width: 22px; height: 22px; margin: 1.5px; border-radius: 3px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 9px; font-weight: 600; cursor: pointer;
-      background: #444; color: #ccc; border: 1px solid #555;
-      transition: transform 0.1s, background 0.2s;
-    }
-    .seat:hover:not(.occupied):not(.reserved):not(.held) { transform: scale(1.15); background: #555; z-index: 10; }
-    .seat.selected { background: #f5c518; border-color: #d4a710; color: #000; transform: scale(1.1); font-weight: 800; }
-    .seat.occupied { background: #e62b1e; border-color: #c03b2b; color: #fca5a5; opacity: 0.7; cursor: not-allowed; }
-    .seat.reserved { background: #f39c12; border-color: #d35400; color: #fff; cursor: not-allowed; opacity: 0.8; }
-    .seat.held { background: #8e44ad; border-color: #732d91; color: #e8b0ff; opacity: 0.8; cursor: not-allowed; }
-    
-    .aisle-horizontal { height: 10px; }
-    .aisle-vertical   { width: 10px; }
+    /* ---------- Legend ---------- */
+    .lg{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);font-weight:500}
+    .lg i{width:13px;height:13px;border-radius:3px;display:inline-block}
 
-    @media (max-width: 600px) {
-      .seat { width: 16px; height: 16px; font-size: 7px; margin: 1px; border-radius: 2px; }
-      .row-label { font-size: 8px; margin-right: 4px; }
-      .screen { font-size: 10px; padding: 6px; letter-spacing: 2px; }
-    }
+    /* ---------- Modals / sheets ---------- */
+    .ovl{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:60;align-items:center;justify-content:center;padding:16px}
+    .ovl.open{display:flex}
+    .sheet{background:#fff;border-radius:10px;width:100%;max-width:440px;max-height:92vh;overflow-y:auto;box-shadow:0 18px 60px rgba(0,0,0,.3)}
 
-    /* Form Styles */
-    .booking-form {
-      background: #2a2a2a; border-radius: 8px; padding: 20px;
-      border: 1px solid #333;
-    }
-    .form-group { margin-bottom: 16px; }
-    .form-group label { display:block; margin-bottom:6px; font-weight: 500; color: #aaa; font-size: 13px;}
-    .form-group input, .form-group select {
-      width:100%; padding: 10px 12px; border-radius: 6px; border: 1px solid #444;
-      background: #1e1e1e; color:#f8fafc; font-size:14px; transition: all 0.2s ease;
-    }
-    .form-group input:focus, .form-group select:focus {
-      outline:none; border-color:#f5c518; box-shadow:0 0 0 2px rgba(245, 197, 24, 0.2);
-    }
-    .form-group input:read-only { background-color: #111; color: #888; cursor: not-allowed; }
+    /* ---------- Seat-count picker ---------- */
+    .cnt{width:44px;height:44px;border-radius:50%;border:1px solid #ddd;background:#fff;font-weight:700;font-size:15px;color:#444;cursor:pointer;transition:.15s}
+    .cnt:hover:not(:disabled){border-color:var(--pink);color:var(--pink)}
+    .cnt.on{background:var(--pink);border-color:var(--pink);color:#fff}
+    .cnt:disabled{opacity:.3;cursor:not-allowed}
 
-    /* Modals */
-    .modal-overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(4px);
-      display: none; justify-content: center; align-items: center; z-index: 1000;
-    }
-    .payment-qr, .ticket-qr { margin: 15px auto; border-radius: 8px; border: 4px solid #fff; }
-    .payment-qr { width: 160px; height: 160px; }
-    .ticket-qr { width: 200px; height: 200px; }
-    
-    /* View transitions */
-    .view-section { display: none; animation: fadeIn 0.4s ease forwards; }
-    .view-section.active { display: block; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    /* ---------- Sticky pay bar ---------- */
+    .paybar{position:fixed;left:0;right:0;bottom:0;z-index:40;background:#fff;border-top:1px solid var(--line);box-shadow:0 -4px 22px rgba(0,0,0,.09);transform:translateY(110%);transition:transform .25s}
+    .paybar.up{transform:translateY(0)}
 
-    /* Ticket Card */
-    .ticket-card {
-        background: linear-gradient(145deg, #1e1e1e, #2a2a2a);
-        border: 1px dashed #555;
-        border-radius: 12px;
-        position: relative;
-        overflow: hidden;
-    }
-    .ticket-card::before, .ticket-card::after {
-        content: ''; position: absolute; top: 50%; width: 20px; height: 20px;
-        background-color: #111; border-radius: 50%; transform: translateY(-50%);
-    }
-    .ticket-card::before { left: -10px; }
-    .ticket-card::after { right: -10px; }
+    /* ---------- Ticket card ---------- */
+    .tkt{background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08);border:1px solid var(--line)}
+    .tkt-perf{border-top:2px dashed #dcdcdc;position:relative}
+    .tkt-perf:before,.tkt-perf:after{content:"";position:absolute;top:-11px;width:20px;height:20px;border-radius:50%;background:var(--bg)}
+    .tkt-perf:before{left:-11px}
+    .tkt-perf:after{right:-11px}
 
-    /* Custom Scrollbar */
-    ::-webkit-scrollbar { height: 6px; width: 6px; }
-    ::-webkit-scrollbar-track { background: #1e1e1e; border-radius: 4px;}
-    ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #777; }
+    .chip{display:inline-block;font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;letter-spacing:.4px}
+    .toast{position:fixed;left:50%;top:68px;transform:translate(-50%,-26px);opacity:0;transition:.28s;z-index:90;padding:11px 18px;border-radius:6px;font-size:13px;font-weight:600;color:#fff;pointer-events:none;max-width:90vw;text-align:center}
+    .toast.show{transform:translate(-50%,0);opacity:1}
+    .spin{width:26px;height:26px;border:3px solid #eee;border-top-color:var(--pink);border-radius:50%;animation:sp .7s linear infinite;margin:0 auto}
+    @keyframes sp{to{transform:rotate(360deg)}}
+    ::-webkit-scrollbar{height:7px;width:7px}
+    ::-webkit-scrollbar-thumb{background:#ccc;border-radius:4px}
   </style>
 </head>
-<body class="antialiased min-h-screen flex flex-col relative overflow-x-hidden">
+<body>
 
-  <!-- Header -->
-  <header class="sticky top-0 z-50 glass-panel">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center py-4">
-        <a href="#" class="flex items-center space-x-2 flex-shrink-0" onclick="switchView('booking')">
-            <span class="font-black text-2xl text-white">NIFT</span><span class="font-bold text-2xl text-movie-accent">MovieNight</span>
-        </a>
-        <div id="header-auth-buttons" class="flex items-center gap-3 text-sm font-medium">
-            <button id="header-login-btn" onclick="switchView('login')" class="px-4 py-2 bg-movie-accent text-black rounded-md text-xs font-bold hover:bg-yellow-500 transition-colors">Sign In</button>
-            <div id="header-user-info" class="hidden flex items-center gap-3">
-                <span class="hidden md:inline border-r border-gray-600 pr-3 text-gray-400">Logged in as: <span id="header-email" class="text-white"></span></span>
-                <button onclick="switchView('profile')" class="px-4 py-2 bg-[#2a2a2a] hover:bg-movie-accent hover:text-black border border-gray-700 text-white rounded-md text-xs font-bold transition-colors">My Tickets</button>
-                <button id="logout-btn" class="px-4 py-2 bg-gray-800 hover:bg-red-900 border border-gray-700 text-white rounded-md text-xs font-bold transition-colors">Logout</button>
-            </div>
-        </div>
-    </div>
-  </header>
+<!-- ══════════════ HEADER ══════════════ -->
+<header class="bg-white border-b border-[var(--line)] sticky top-0 z-50">
+  <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+    <button onclick="go('seats')" class="flex items-center gap-2 bg-transparent border-0 cursor-pointer p-0">
+      <span class="text-[22px] font-black tracking-tight text-[var(--navy)]">nift</span>
+      <span class="text-[22px] font-black tracking-tight text-[var(--pink)]">movies</span>
+    </button>
 
-  <main class="flex-grow w-full flex items-start justify-center p-4 md:py-10 relative z-10">
-    
-    <!-- 1. LOGIN / VERIFICATION SECTION -->
-    <div id="login-view" class="view-section w-full max-w-md mx-auto">
-        <div class="booking-container mx-auto">
-            <h2 id="auth-title" class="text-2xl font-bold text-white mb-2 text-center">Student Login</h2>
-            <p id="auth-subtitle" class="text-gray-400 text-center text-sm mb-8">Access restricted to @nift.ac.in emails</p>
-            
-            <div id="auth-form-step">
-                <div class="form-group mb-4">
-                    <label>NIFT Email Address</label>
-                    <input type="email" id="auth-email" placeholder="e.g. name.surname@nift.ac.in" class="w-full">
-                </div>
-                <div class="form-group mb-6">
-                    <div class="flex justify-between items-center mb-1">
-                        <label class="mb-0">Password</label>
-                        <button type="button" onclick="showForgotPassword()" class="text-xs text-movie-accent hover:underline">Forgot password?</button>
-                    </div>
-                    <input type="password" id="auth-password" placeholder="••••••••" class="w-full">
-                </div>
-                <button id="auth-action-btn" class="w-full py-3 bg-movie-accent text-black font-bold rounded-lg hover:bg-yellow-500 transition-colors">
-                    Sign In
-                </button>
-                <p id="auth-spam-notice" class="hidden text-xs text-gray-500 text-center mt-2">If you don't receive the email, please check your spam/junk folder.</p>
-                <div class="mt-4 text-center">
-                    <button id="auth-toggle-btn" type="button" class="text-sm text-movie-accent hover:underline bg-transparent border-none cursor-pointer">
-                        Need an account? Sign Up
-                    </button>
-                </div>
-            </div>
-
-            <!-- Forgot Password Step -->
-            <div id="forgot-password-step" class="hidden text-center">
-                <p class="text-sm text-gray-400 mb-6">Enter your NIFT email to receive a password reset link.</p>
-                <div class="form-group mb-4 text-left">
-                    <label>Email Address</label>
-                    <input type="email" id="reset-email" placeholder="e.g. name.surname@nift.ac.in" class="w-full">
-                </div>
-                <button id="send-reset-btn" class="w-full py-3 bg-movie-accent text-black font-bold rounded-lg hover:bg-yellow-500 transition-colors mb-4">
-                    Send Reset Link
-                </button>
-                <button onclick="showAuthForm()" class="text-sm text-gray-500 hover:text-white transition-colors">
-                    Cancel & Back to Login
-                </button>
-            </div>
-
-            <!-- Email Verification Step -->
-            <div id="auth-verify-step" class="hidden text-center">
-                <svg class="w-12 h-12 text-yellow-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-                <h4 class="text-lg font-bold text-white mb-2">Verify Your Email</h4>
-                <p class="text-sm text-gray-400 mb-6">We've sent a verification link to your NIFT email. Please check your inbox and click the link to verify your account.</p>
-                
-                <button id="check-verify-btn" class="w-full py-3 mb-3 bg-movie-accent text-black font-bold rounded-lg hover:bg-yellow-500 transition-colors">
-                    I have verified - Continue
-                </button>
-                <button id="resend-verify-btn" class="w-full py-3 mb-3 bg-transparent border border-gray-600 text-gray-300 font-bold rounded-lg hover:bg-gray-800 transition-colors">
-                    Resend Verification Email
-                </button>
-                <button id="cancel-verify-btn" class="text-sm text-gray-500 hover:text-white transition-colors mt-2">
-                    Cancel & Sign Out
-                </button>
-            </div>
-            
-            <div id="login-error" class="mt-4 text-red-400 text-sm text-center font-medium hidden"></div>
-        </div>
-    </div>
-
-    <!-- 2. BOOKING SECTION -->
-    <div id="booking-view" class="view-section active w-full">
-        <div class="booking-container mx-auto">
-            
-            <!-- Top Buttons -->
-            <button class="btn-small-top btn-help" onclick="alert('Contact NIFT IT Support for help.')">Help</button>
-            <button class="btn-small-top btn-how-to-book" onclick="document.getElementById('howToBookModal').style.display='flex'">How to Book</button>
-
-            <!-- Header -->
-            <div class="header-booking">
-                <h1>NIFT <span class="text-movie-accent">Movie Night</span></h1>
-                <p>Exclusive Campus Screening</p>
-            </div>
-
-            <!-- Event Card -->
-            <div class="event-card">
-                <div class="text-gray-300">Auditorium Screening</div>
-                <div class="text-gray-300">10:00 PM</div>
-                <div class="text-movie-accent font-bold">₹<span id="base-price-display">25</span> / Seat</div>
-            </div>
-
-            <!-- Booking Closed Banner -->
-            <div id="booking-closed-message" class="hidden text-center py-10 bg-red-900/20 border border-red-900/50 rounded-xl mb-6">
-                <h2 class="text-2xl font-black text-red-500 uppercase tracking-widest">Bookings Closed</h2>
-                <p class="text-gray-400 text-sm mt-2">Ticket sales for this event have officially ended.</p>
-            </div>
-
-            <!-- Legend -->
-            <div class="legend">
-                <div class="legend-item"><div class="legend-color status-available"></div><span>Available</span></div>
-                <div class="legend-item"><div class="legend-color status-reserved"></div><span>Reserved</span></div>
-                <div class="legend-item"><div class="legend-color status-selected"></div><span>Selected</span></div>
-                <div class="legend-item"><div class="legend-color status-occupied"></div><span>Occupied</span></div>
-            </div>
-
-            <!-- Seating Area -->
-            <div class="seating-area">
-                <div id="seat-loading" class="absolute inset-0 bg-[#2a2a2a]/90 backdrop-blur-sm z-20 flex flex-col items-center justify-center rounded-lg">
-                    <div class="w-8 h-8 border-4 border-movie-accent border-t-transparent rounded-full animate-spin mb-3"></div>
-                    <span class="text-sm font-medium text-gray-300">Syncing live seats...</span>
-                </div>
-                <div class="auditorium">
-                    <div class="screen">SCREEN</div>
-                    <div class="direction"><span>Entrance</span><span>Exit</span></div>
-                    <div id="seatingChart"></div>
-                </div>
-            </div>
-
-            <!-- Form Area -->
-            <div class="booking-form">
-                <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-3">
-                    <h3 class="text-lg font-bold text-white">Booking Details</h3>
-                    <span class="bg-[#1e1e1e] text-xs px-2 py-1 rounded text-movie-accent border border-gray-700">Max 4 Seats</span>
-                </div>
-
-                <div class="bg-[#1e1e1e] border border-gray-700 rounded-lg p-3 text-sm">
-                    <div class="flex justify-between text-gray-400 mb-1">
-                        <span>Selected Seats (<span id="selected-count" class="text-white font-bold">0</span>):</span>
-                        <span id="selected-seats-display" class="font-bold text-movie-accent">None</span>
-                    </div>
-                    
-                    <!-- Promo Code System -->
-                    <div class="mt-3 border-t border-gray-700 pt-3">
-                        <label class="block text-xs text-gray-400 mb-1">Have a promo code?</label>
-                        <div class="flex gap-2">
-                            <input type="text" id="promo-code-input" placeholder="e.g. EARLYBIRD" class="w-full px-2 py-1 bg-[#111] border border-gray-600 rounded text-sm text-white focus:border-movie-accent outline-none uppercase">
-                            <button type="button" id="apply-promo-btn" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm font-bold transition-colors">Apply</button>
-                        </div>
-                        <p id="promo-message" class="text-xs mt-1 hidden"></p>
-                    </div>
-
-                    <div class="flex justify-between text-gray-400 border-t border-gray-700 mt-3 pt-3">
-                        <span>Total Amount:</span>
-                        <span class="font-bold text-white text-lg">₹<span id="total-price">0</span></span>
-                    </div>
-                </div>
-
-                <!-- Unauthenticated Prompt -->
-                <div id="auth-prompt-container" class="mt-5 pt-5 border-t border-gray-700 text-center">
-                    <p class="text-sm text-gray-400 mb-3">You need to sign in to complete your booking.</p>
-                    <button onclick="switchView('login')" class="w-full py-3 bg-movie-accent text-black font-bold text-base rounded-lg hover:bg-yellow-500 transition-colors">Sign In to Book</button>
-                </div>
-
-                <!-- Authenticated Form -->
-                <form id="bookingForm" class="space-y-4 hidden mt-5 pt-5 border-t border-gray-700">
-                    <div class="form-group">
-                        <label>Student Email</label>
-                        <input type="email" id="form-email" readonly>
-                    </div>
-                    <div class="form-group mb-2">
-                        <label>Full Name (Main Booker)</label>
-                        <input type="text" id="form-name" required placeholder="Enter your full name">
-                    </div>
-
-                    <!-- Dynamic Guest Names Container -->
-                    <div id="guest-names-container" class="hidden pb-2"></div>
-
-                    <div class="grid grid-cols-2 gap-4 mt-2">
-                        <div class="form-group mb-0">
-                            <label>Phone Number</label>
-                            <input type="tel" id="form-phone" required placeholder="10-digit number">
-                        </div>
-                        <div class="form-group mb-0 flex flex-col justify-end pb-2">
-                            <label class="flex items-center gap-2 cursor-pointer group">
-                                <input type="checkbox" id="form-wa-same" checked class="w-4 h-4 rounded border-gray-600 text-movie-accent bg-[#1e1e1e]">
-                                <span class="text-xs text-gray-400 group-hover:text-gray-300">WhatsApp is same</span>
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group hidden" id="wa-group">
-                        <label>WhatsApp Number</label>
-                        <input type="tel" id="form-whatsapp" placeholder="10-digit WhatsApp number">
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="form-group mb-0">
-                            <label>Student ID</label>
-                            <input type="text" id="form-student-id" required placeholder="Roll No">
-                        </div>
-                        <div class="form-group mb-0">
-                            <label>Department</label>
-                            <select id="form-department" required>
-                                <option value="" disabled selected>Select</option>
-                                <option value="AD">AD</option>
-                                <option value="BFT">BFT</option>
-                                <option value="MFM">MFM</option>
-                                <option value="FD">FD</option>
-                                <option value="FC">FC</option>
-                                <option value="TD">TD</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="pt-2 mt-2 border-t border-gray-700">
-                        <label class="flex items-start gap-3 cursor-pointer group mt-3">
-                            <input type="checkbox" id="terms-checkbox" class="mt-1 w-4 h-4 rounded border-gray-600 text-movie-accent focus:ring-movie-accent bg-[#1e1e1e]">
-                            <span class="text-xs text-gray-400 leading-tight group-hover:text-gray-300 transition-colors">
-                                I agree to the <a href="#" class="text-movie-accent hover:underline" onclick="alert('Event Rules:\n1. Bring NIFT ID\n2. No outside food\n3. No refunds'); return false;">terms and conditions</a> (Bring NIFT ID, No outside food, No refunds) and confirm my details.
-                            </span>
-                        </label>
-                    </div>
-
-                    <button type="button" id="proceed-pay-btn" class="w-full py-3 mt-4 bg-movie-accent text-black font-bold text-base rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-yellow-500 shadow-[0_0_15px_rgba(245,197,24,0.1)]" disabled>
-                        Proceed to Pay
-                    </button>
-                </form>
-            </div>
-
-        </div>
-    </div>
-
-    <!-- 3. PROFILE / TICKETS SECTION -->
-    <div id="profile-view" class="view-section w-full">
-        <div class="booking-container mx-auto max-w-2xl">
-            <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-700">
-                <h2 class="text-2xl font-bold text-white">My Tickets</h2>
-                <button onclick="switchView('booking')" class="text-sm bg-gray-800 text-gray-300 px-3 py-1.5 rounded hover:bg-gray-700 transition">← Back</button>
-            </div>
-            
-            <div id="profile-loading" class="text-center py-10 text-gray-400">
-                <div class="w-8 h-8 border-4 border-movie-accent border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                Loading your tickets...
-            </div>
-
-            <div id="no-tickets-msg" class="hidden text-center py-12">
-                <svg class="w-16 h-16 text-gray-700 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path></svg>
-                <h3 class="text-lg font-bold text-gray-400">No Tickets Found</h3>
-                <p class="text-sm text-gray-500 mt-1">You haven't booked any seats yet.</p>
-                <button onclick="switchView('booking')" class="mt-4 px-6 py-2 bg-movie-accent text-black font-bold rounded-lg hover:bg-yellow-500 text-sm">Book Now</button>
-            </div>
-
-            <div id="tickets-container" class="space-y-6 hidden">
-                <!-- Tickets will be dynamically injected here -->
-            </div>
-        </div>
-    </div>
-
-  </main>
-
-  <!-- Modals -->
-  
-  <!-- Payment Modal -->
-  <div id="paymentModal" class="modal-overlay">
-    <div class="bg-[#1e1e1e] p-6 rounded-xl max-w-sm w-[90%] border border-gray-700 shadow-2xl relative">
-      <!-- Seat Hold Timer -->
-      <div class="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-4 py-1 rounded-full text-xs font-bold border-2 border-[#1e1e1e] flex items-center gap-2 shadow-lg">
-          <svg class="w-3 h-3 animate-pulse" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path></svg>
-          <span id="payment-timer">05:00</span>
+    <div class="flex items-center gap-2">
+      <button onclick="openHowTo()" class="hidden sm:block text-[13px] font-semibold text-[var(--muted)] hover:text-[var(--navy)] bg-transparent border-0 cursor-pointer">How it works</button>
+      <div id="nav-out">
+        <button onclick="go('login')" class="btn-pink px-5 py-1.5 text-[13px]">Sign in</button>
       </div>
-
-      <h3 class="text-xl font-bold text-white text-center mb-2 mt-3">Complete Payment</h3>
-      <p class="text-center text-gray-400 text-xs mb-4">Scan QR with any UPI app</p>
-      
-      <div class="bg-white p-2 rounded-lg w-max mx-auto mb-4">
-          <img id="paymentQrImage" src="" alt="UPI QR Code" class="w-40 h-40">
-      </div>
-      
-      <div class="text-center mb-5">
-          <span class="text-xs text-gray-400 block">Amount to Pay</span>
-          <span class="text-3xl font-black text-movie-accent">₹<span id="modal-amount"></span></span>
-          <p id="qrCodeInfo" class="text-[10px] text-gray-500 mt-1 bg-[#111] py-1 px-2 rounded inline-block"></p>
-      </div>
-
-      <div class="form-group mb-5">
-        <label class="text-gray-300 text-xs">Enter UTR / Transaction ID</label>
-        <input id="payment-utr" type="text" placeholder="12-digit reference number" class="text-center font-mono tracking-widest text-sm py-2" required>
-      </div>
-
-      <div class="form-group mb-5">
-        <label class="text-gray-300 text-xs">Upload Payment Screenshot</label>
-        <input type="file" id="payment-screenshot" accept="image/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#2a2a2a] file:text-white hover:file:bg-movie-accent hover:file:text-black transition-all cursor-pointer mt-1" required>
-      </div>
-
-      <div class="flex flex-col gap-2">
-        <button id="submitPaymentBtn" class="w-full py-2.5 bg-green-600 text-white font-bold text-sm rounded-lg hover:bg-green-500 transition-colors shadow-[0_0_10px_rgba(22,163,74,0.2)]">
-            Confirm Payment
-        </button>
-        <button id="cancelPaymentBtn" class="w-full py-2.5 bg-transparent border border-gray-600 text-gray-300 font-bold text-sm rounded-lg hover:bg-gray-800 transition-colors">
-            Cancel & Release Seats
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Ticket Success Modal (Gate Scan QR) -->
-  <div id="ticketSuccessModal" class="modal-overlay">
-    <div class="bg-[#1e1e1e] p-6 rounded-xl max-w-sm w-[90%] border border-movie-accent shadow-[0_0_30px_rgba(245,197,24,0.2)]">
-      <div class="text-center mb-4">
-          <div class="w-12 h-12 bg-green-900/50 rounded-full flex items-center justify-center mx-auto mb-3 border border-green-500">
-              <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+      <div id="nav-in" class="hidden items-center gap-2">
+        <button onclick="go('tickets')" class="btn-ghost px-3.5 py-1.5 text-[13px]">My tickets</button>
+        <div class="relative">
+          <button onclick="document.getElementById('umenu').classList.toggle('hidden')"
+                  class="w-8 h-8 rounded-full bg-[var(--navy)] text-white text-[12px] font-bold flex items-center justify-center border-0 cursor-pointer" id="avatar">?</button>
+          <div id="umenu" class="hidden absolute right-0 mt-2 w-56 bg-white border border-[var(--line)] rounded-lg shadow-xl py-1.5 z-50">
+            <div class="px-3.5 py-2 border-b border-[var(--line)]">
+              <p class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold">Signed in as</p>
+              <p id="menu-email" class="text-[12px] font-semibold truncate text-[var(--navy)]"></p>
+            </div>
+            <button onclick="go('tickets');document.getElementById('umenu').classList.add('hidden')" class="w-full text-left px-3.5 py-2 text-[13px] hover:bg-[#fafafa] bg-transparent border-0 cursor-pointer">My tickets</button>
+            <button id="logout-btn" class="w-full text-left px-3.5 py-2 text-[13px] text-[var(--pink)] font-semibold hover:bg-[#fff5f7] bg-transparent border-0 cursor-pointer">Sign out</button>
           </div>
-          <h3 class="text-xl font-bold text-white">Booking Confirmed!</h3>
-          <p class="text-gray-400 text-xs mt-1">Show this QR code at the entrance gate.</p>
+        </div>
       </div>
-      
-      <div class="bg-white p-3 rounded-lg w-max mx-auto mb-4">
-          <img id="successTicketQr" src="" alt="Ticket QR Code" class="ticket-qr" crossorigin="anonymous">
-      </div>
-      
-      <div class="text-center mb-6 bg-[#111] border border-gray-800 rounded-lg p-3">
-          <span class="text-xs text-gray-500 block">Ticket ID</span>
-          <span id="successTicketId" class="font-mono text-movie-accent font-bold tracking-widest block"></span>
-          <span class="text-xs text-gray-500 block mt-2">Seats Booked</span>
-          <span id="successTicketSeats" class="font-bold text-white block"></span>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════════ LOGIN ══════════════ -->
+<section id="view-login" class="view">
+  <div class="max-w-md mx-auto px-4 py-12">
+    <div class="bg-white rounded-xl border border-[var(--line)] p-7 shadow-sm">
+
+      <div id="step-auth">
+        <h1 id="auth-title" class="text-[22px] font-bold text-[var(--navy)] mb-1">Sign in</h1>
+        <p id="auth-sub" class="text-[13px] text-[var(--muted)] mb-6">Only <b>@nift.ac.in</b> email addresses are allowed.</p>
+
+        <label class="lbl">Email</label>
+        <input id="in-email" type="email" class="fld mb-4" placeholder="yourname@nift.ac.in" autocomplete="email">
+
+        <label class="lbl">Password</label>
+        <input id="in-pass" type="password" class="fld mb-2" placeholder="Minimum 6 characters" autocomplete="current-password">
+
+        <div class="text-right mb-5">
+          <button onclick="showForgot()" class="text-[12px] font-semibold text-[var(--pink)] bg-transparent border-0 cursor-pointer p-0">Forgot password?</button>
+        </div>
+
+        <button id="auth-btn" class="btn-pink w-full py-3 text-[14px]">Sign in</button>
+        <p id="spam-note" class="hidden text-[11px] text-[var(--muted)] text-center mt-3">Verification mail can land in spam — please check there too.</p>
+
+        <div class="text-center mt-5 pt-5 border-t border-[var(--line)]">
+          <button id="auth-swap" class="text-[13px] text-[var(--muted)] bg-transparent border-0 cursor-pointer">New here? <b class="text-[var(--pink)]">Create an account</b></button>
+        </div>
       </div>
 
-      <button onclick="document.getElementById('ticketSuccessModal').style.display='none'; switchView('profile');" class="w-full py-3 bg-movie-accent text-black font-bold text-sm rounded-lg hover:bg-yellow-500 transition-colors">
-        View in My Tickets
-      </button>
+      <div id="step-forgot" class="hidden">
+        <h1 class="text-[22px] font-bold text-[var(--navy)] mb-1">Reset password</h1>
+        <p class="text-[13px] text-[var(--muted)] mb-6">We'll email you a reset link.</p>
+        <label class="lbl">Email</label>
+        <input id="in-reset" type="email" class="fld mb-5" placeholder="yourname@nift.ac.in">
+        <button id="reset-btn" class="btn-pink w-full py-3 text-[14px] mb-3">Send reset link</button>
+        <button onclick="showAuth()" class="w-full text-[13px] text-[var(--muted)] bg-transparent border-0 cursor-pointer py-1">Back to sign in</button>
+      </div>
+
+      <div id="step-verify" class="hidden text-center">
+        <div class="w-14 h-14 rounded-full bg-[#fff0f3] flex items-center justify-center mx-auto mb-4">
+          <svg class="w-7 h-7 text-[var(--pink)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+        </div>
+        <h1 class="text-[20px] font-bold text-[var(--navy)] mb-1">Verify your email</h1>
+        <p class="text-[13px] text-[var(--muted)] mb-6">We sent a link to <b id="verify-mail"></b>. Open it, then continue.</p>
+        <button id="verify-check" class="btn-pink w-full py-3 text-[14px] mb-2.5">I've verified — continue</button>
+        <button id="verify-resend" class="btn-ghost w-full py-3 text-[14px] mb-2.5">Resend email</button>
+        <button id="verify-cancel" class="w-full text-[13px] text-[var(--muted)] bg-transparent border-0 cursor-pointer py-1">Use a different account</button>
+      </div>
+
+      <div id="auth-err" class="hidden mt-4 text-[12.5px] text-[var(--pink)] bg-[#fff5f7] border border-[#ffd9e1] rounded-md px-3 py-2 font-medium"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ SEATS ══════════════ -->
+<section id="view-seats" class="view active">
+
+  <!-- Event strip -->
+  <div class="bg-[var(--slate)] text-white">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 id="ev-title" class="text-[19px] sm:text-[22px] font-bold leading-tight">NIFT Movie Night</h1>
+        <p class="text-[12px] text-white/60 mt-0.5">
+          <span id="ev-lang">Hindi</span> · <span id="ev-format">2D</span> · <span id="ev-venue">NIFT Auditorium</span>
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="bg-white/10 rounded-md px-3 py-1.5 text-center">
+          <p class="text-[10px] text-white/60 uppercase tracking-wide font-semibold">Date</p>
+          <p id="ev-date" class="text-[13px] font-bold">TBA</p>
+        </div>
+        <div class="bg-white/10 rounded-md px-3 py-1.5 text-center">
+          <p class="text-[10px] text-white/60 uppercase tracking-wide font-semibold">Show</p>
+          <p id="ev-time" class="text-[13px] font-bold">TBA</p>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- How to Book Modal -->
-  <div id="howToBookModal" class="modal-overlay">
-    <div class="bg-[#1e1e1e] p-6 rounded-xl max-w-sm w-[90%] border border-gray-700 shadow-2xl">
-      <h3 class="text-lg font-bold text-white mb-4 border-b border-gray-700 pb-2">How to Book Your Seat</h3>
-      <ol class="space-y-3 text-xs text-gray-300 list-decimal pl-4 marker:text-movie-accent marker:font-bold">
-          <li>Log in using your official <b>@nift.ac.in</b> email address.</li>
-          <li>Select up to <b>4 seats</b> from the interactive auditorium map.</li>
-          <li>Fill in the required student details for the main booker.</li>
-          <li>Click Proceed to Payment and scan the generated UPI QR code. You have <b>5 minutes</b> to complete this step.</li>
-          <li>Enter your <b>Transaction ID (UTR)</b> and upload a payment screenshot, then submit.</li>
-      </ol>
-      <button onclick="document.getElementById('howToBookModal').style.display='none'" class="w-full mt-6 py-2.5 bg-movie-accent text-black font-bold text-sm rounded-lg hover:bg-yellow-500">
-        Got It!
+  <!-- Selection bar -->
+  <div id="sel-bar" class="bg-white border-b border-[var(--line)] sticky top-14 z-30">
+    <div class="max-w-6xl mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+      <button onclick="openCount()" class="flex items-center gap-2 whitespace-nowrap bg-[#f7f7f7] hover:bg-[#efefef] border border-[var(--line)] rounded-full px-3.5 py-1.5 cursor-pointer transition-colors">
+        <svg class="w-3.5 h-3.5 text-[var(--muted)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.36-1.86M17 20H7m10 0v-2c0-.66-.13-1.3-.36-1.86m0 0a5 5 0 00-9.28 0M7 20H2v-2a3 3 0 015.36-1.86M7 20v-2c0-.66.13-1.3.36-1.86m0 0a5 5 0 019.28 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span class="text-[12.5px] font-semibold text-[var(--navy)]"><span id="count-label">2</span> tickets</span>
+        <svg class="w-3 h-3 text-[var(--muted)]" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
       </button>
+
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:gap-x-4">
+        <span class="lg"><i style="border:1px solid var(--green);background:#fff"></i>Available</span>
+        <span class="lg"><i style="background:var(--green)"></i>Selected</span>
+        <span class="lg"><i style="background:#ededed"></i>Sold</span>
+        <span class="lg"><i style="background:var(--amber-soft);border:1px solid #e6c56a"></i>On hold</span>
+      </div>
     </div>
   </div>
 
-  <!-- Global Toast -->
-  <div id="toast-message" class="fixed bottom-6 right-6 transform translate-y-20 opacity-0 transition-all duration-300 z-50 px-5 py-3 rounded-lg font-medium shadow-2xl flex items-center gap-3 text-sm">
-      <span id="toast-icon"></span>
-      <span id="toast-text"></span>
+  <div class="max-w-6xl mx-auto px-0 sm:px-4 pb-40 pt-1">
+
+    <!-- Bookings closed -->
+    <div id="closed-box" class="hidden mx-4 mt-8 bg-white border border-[#ffd9e1] rounded-xl p-8 text-center">
+      <div class="w-12 h-12 rounded-full bg-[#fff0f3] flex items-center justify-center mx-auto mb-3">
+        <svg class="w-6 h-6 text-[var(--pink)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+      </div>
+      <h2 class="text-[18px] font-bold text-[var(--navy)] mb-1">Bookings are closed</h2>
+      <p class="text-[13px] text-[var(--muted)]">Seat selection is currently disabled. Check back later or contact the organisers.</p>
+    </div>
+
+    <!-- Loader -->
+    <div id="map-load" class="py-24 text-center">
+      <div class="spin mb-3"></div>
+      <p class="text-[12px] text-[var(--muted)] font-medium">Loading seat layout…</p>
+    </div>
+
+    <!-- Map -->
+    <div id="map-box" class="hidden">
+      <div class="map-scroll"><div class="map-inner" id="seat-map"></div></div>
+      <div class="screen-wrap">
+        <div class="screen-bar"></div>
+        <p class="screen-cap">All eyes this way please</p>
+      </div>
+    </div>
   </div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, onAuthStateChanged, signOut, reload } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
+  <!-- Sticky pay bar -->
+  <div id="paybar" class="paybar">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+      <div class="min-w-0">
+        <p class="text-[11px] text-[var(--muted)] font-semibold uppercase tracking-wide">Seats</p>
+        <p id="bar-seats" class="text-[14px] font-bold text-[var(--navy)] truncate">—</p>
+      </div>
+      <button id="bar-pay" class="btn-pink px-8 py-3 text-[14px] whitespace-nowrap">Pay ₹0</button>
+    </div>
+  </div>
+</section>
 
-    // --- Configuration & Initialization ---
-    const firebaseConfig = {
-      apiKey: "AIzaSyCEDUyZD20PYvHMe-CX-_n2MWRvENiggd8",
-      authDomain: "apc-movie.firebaseapp.com",
-      databaseURL: "https://apc-movie-default-rtdb.firebaseio.com",
-      projectId: "apc-movie",
-      storageBucket: "apc-movie.firebasestorage.app",
-      messagingSenderId: "849582804075",
-      appId: "1:849582804075:web:44831ccf1309b106a2b52e",
-      measurementId: "G-D1EBGR4LJS"
-    };
-    
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getDatabase(app);
+<!-- ══════════════ MY TICKETS ══════════════ -->
+<section id="view-tickets" class="view">
+  <div class="max-w-2xl mx-auto px-4 py-8 pb-20">
+    <div class="flex items-center justify-between mb-5">
+      <h1 class="text-[22px] font-bold text-[var(--navy)]">My tickets</h1>
+      <button onclick="go('seats')" class="btn-ghost px-4 py-2 text-[13px]">Book more</button>
+    </div>
+    <div id="tkt-load" class="py-16 text-center"><div class="spin"></div></div>
+    <div id="tkt-empty" class="hidden bg-white border border-[var(--line)] rounded-xl p-10 text-center">
+      <p class="text-[15px] font-bold text-[var(--navy)] mb-1">No bookings yet</p>
+      <p class="text-[13px] text-[var(--muted)] mb-5">Your tickets will appear here once you book.</p>
+      <button onclick="go('seats')" class="btn-pink px-6 py-2.5 text-[13px]">Browse seats</button>
+    </div>
+    <div id="tkt-list" class="hidden space-y-5"></div>
+  </div>
+</section>
 
-    // --- State Variables ---
-    let currentUser = null;
-    let unsubSeats = null;
-    let verifiedEmail = "";
-    let isSignUpMode = false;
-    let holdTimerInterval = null;
-    
-    // Cloudinary Config
-    const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/dzh1pbrcm/image/upload";
-    const CLOUDINARY_UPLOAD_PRESET = "movie_tickets"; // 'Unsigned' preset
-    
-    const BASE_PRICE = 25; 
-    const MAX_SEATS = 4;
-    let selectedSeats = [];
-    let liveSeatsData = {};
-    let livePromoCodes = {};
-    // Promo Variables
-    let currentDiscountPerSeat = 0;
-    let appliedPromoCode = null;
+<!-- ══════════════ SEAT COUNT MODAL ══════════════ -->
+<div id="m-count" class="ovl">
+  <div class="sheet p-6 text-center max-w-[380px]">
+    <h3 class="text-[17px] font-bold text-[var(--navy)] mb-1">How many seats?</h3>
+    <p class="text-[12.5px] text-[var(--muted)] mb-6">You can book up to <span id="count-max">4</span> in total.</p>
+    <div id="count-opts" class="flex justify-center gap-3 mb-7"></div>
+    <button onclick="closeCount()" class="btn-pink w-full py-3 text-[14px]">Select seats</button>
+  </div>
+</div>
 
-    // Helper for random jitter/delay (prevent Firebase rate limit spikes)
-    const randomDelay = (min, max) => new Promise(res => setTimeout(res, Math.floor(Math.random() * (max - min + 1) + min)));
+<!-- ══════════════ CHECKOUT (details → payment) ══════════════ -->
+<div id="m-checkout" class="ovl">
+  <div class="sheet">
+    <div class="sticky top-0 bg-white border-b border-[var(--line)] px-5 py-3.5 flex items-center justify-between z-10">
+      <div>
+        <h3 id="co-title" class="text-[15px] font-bold text-[var(--navy)]">Your details</h3>
+        <p class="text-[11px] text-[var(--muted)]">Seats held for <b id="co-timer" class="text-[var(--pink)]">05:00</b></p>
+      </div>
+      <button id="co-close" class="w-8 h-8 rounded-full hover:bg-[#f2f2f2] text-[var(--muted)] text-lg leading-none bg-transparent border-0 cursor-pointer">✕</button>
+    </div>
 
-    function getUserBookedCount() {
-        if (!currentUser) return 0;
-        let count = 0;
-        Object.values(liveSeatsData).forEach(data => {
-            if (data.userId === currentUser.uid && data.status === 'occupied') {
-                count++;
-            }
-        });
-        return count;
+    <!-- STEP 1 -->
+    <div id="co-step1" class="p-5">
+      <div class="bg-[#fafafa] border border-[var(--line)] rounded-lg p-3 mb-5 flex justify-between items-center">
+        <div>
+          <p class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold">Seats</p>
+          <p id="co-seats" class="text-[13.5px] font-bold text-[var(--navy)]"></p>
+        </div>
+        <div class="text-right">
+          <p class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold">Total</p>
+          <p id="co-total-1" class="text-[15px] font-black text-[var(--navy)]">₹0</p>
+        </div>
+      </div>
+
+      <label class="lbl">Email</label>
+      <input id="f-email" type="email" class="fld mb-4" readonly>
+
+      <label class="lbl">Full name (main booker)</label>
+      <input id="f-name" type="text" class="fld mb-4" placeholder="As printed on your NIFT ID" maxlength="80">
+
+      <div id="f-guests" class="hidden mb-4"></div>
+
+      <div class="grid grid-cols-2 gap-3 mb-3">
+        <div><label class="lbl">Phone</label><input id="f-phone" type="tel" class="fld" placeholder="10-digit" maxlength="10" inputmode="numeric"></div>
+        <div><label class="lbl">Student ID</label><input id="f-sid" type="text" class="fld" placeholder="Roll no." maxlength="40"></div>
+      </div>
+
+      <label class="flex items-center gap-2 mb-3 cursor-pointer">
+        <input id="f-wa-same" type="checkbox" checked class="w-4 h-4 accent-[var(--pink)]">
+        <span class="text-[12.5px] text-[var(--muted)]">WhatsApp number is the same</span>
+      </label>
+      <div id="f-wa-box" class="hidden mb-4">
+        <label class="lbl">WhatsApp number</label>
+        <input id="f-wa" type="tel" class="fld" placeholder="10-digit" maxlength="10" inputmode="numeric">
+      </div>
+
+      <label class="lbl">Department</label>
+      <select id="f-dept" class="fld mb-4">
+        <option value="" disabled selected>Select department</option>
+        <option>AD</option><option>BFT</option><option>MFM</option>
+        <option>FD</option><option>FC</option><option>TD</option><option>Other</option>
+      </select>
+
+      <label class="lbl">Promo code (optional)</label>
+      <div class="flex gap-2 mb-1">
+        <input id="f-promo" type="text" class="fld uppercase" placeholder="Enter code" maxlength="40">
+        <button id="promo-btn" class="btn-ghost px-5 text-[13px] whitespace-nowrap">Apply</button>
+      </div>
+      <p id="promo-msg" class="hidden text-[11.5px] font-semibold mb-3"></p>
+
+      <label class="flex items-start gap-2.5 my-4 cursor-pointer">
+        <input id="f-terms" type="checkbox" class="mt-0.5 w-4 h-4 accent-[var(--pink)] flex-shrink-0">
+        <span class="text-[12px] text-[var(--muted)] leading-snug">
+          I agree to the <button type="button" onclick="openHowTo()" class="text-[var(--pink)] font-semibold bg-transparent border-0 p-0 cursor-pointer underline">event terms</button> — carry your NIFT ID, no outside food, no refunds.
+        </span>
+      </label>
+
+      <button id="co-next" class="btn-pink w-full py-3 text-[14px]" disabled>Continue to payment</button>
+    </div>
+
+    <!-- STEP 2 -->
+    <div id="co-step2" class="hidden p-5">
+      <div class="text-center mb-4">
+        <p class="text-[12px] text-[var(--muted)] mb-1">Amount payable</p>
+        <p id="co-total-2" class="text-[30px] font-black text-[var(--navy)] leading-none">₹0</p>
+      </div>
+
+      <div id="co-breakdown" class="bg-[#fafafa] border border-[var(--line)] rounded-lg p-3 mb-4 space-y-1.5 text-[12.5px]"></div>
+
+      <div class="border border-[var(--line)] rounded-lg p-4 text-center mb-4">
+        <img id="upi-qr" alt="UPI QR code" class="w-40 h-40 mx-auto mb-2">
+        <p class="text-[11px] text-[var(--muted)]">Pay to <b id="upi-name" class="text-[var(--navy)]"></b></p>
+        <p id="upi-id" class="text-[11px] font-mono text-[var(--muted)]"></p>
+        <a id="upi-link" href="#" class="inline-block mt-3 btn-ghost px-5 py-2 text-[12.5px] no-underline">Open UPI app</a>
+      </div>
+
+      <label class="lbl">UTR / Transaction ID</label>
+      <input id="f-utr" type="text" class="fld mb-4" placeholder="12-digit reference from your UPI app" maxlength="60">
+
+      <label class="lbl">Payment screenshot</label>
+      <input id="f-shot" type="file" accept="image/*" class="fld mb-4 text-[12px] py-2">
+
+      <div class="bg-[#fff8e6] border border-[#f0dfae] rounded-lg px-3 py-2.5 mb-4">
+        <p class="text-[11.5px] text-[#8a6a12] leading-snug"><b>Note:</b> Your seat is confirmed once an organiser verifies the payment. Check <b>My tickets</b> for status.</p>
+      </div>
+
+      <button id="co-submit" class="btn-pink w-full py-3 text-[14px]">Confirm booking</button>
+      <button id="co-back" class="w-full text-[13px] text-[var(--muted)] bg-transparent border-0 cursor-pointer py-2.5 mt-1">Back to details</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ SUCCESS ══════════════ -->
+<div id="m-done" class="ovl">
+  <div class="sheet p-7 text-center max-w-[380px]">
+    <div class="w-14 h-14 rounded-full bg-[var(--green-soft)] flex items-center justify-center mx-auto mb-4">
+      <svg class="w-7 h-7 text-[var(--green)]" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+    </div>
+    <h3 class="text-[19px] font-bold text-[var(--navy)] mb-1">Booking placed</h3>
+    <p class="text-[12.5px] text-[var(--muted)] mb-5">Pending organiser verification.</p>
+    <div class="bg-[#fafafa] border border-[var(--line)] rounded-lg p-4 mb-5">
+      <p class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold mb-1">Booking ID</p>
+      <p id="done-id" class="text-[15px] font-mono font-bold text-[var(--navy)] mb-3"></p>
+      <p class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold mb-1">Seats</p>
+      <p id="done-seats" class="text-[15px] font-bold text-[var(--navy)]"></p>
+    </div>
+    <button onclick="closeAll();go('tickets')" class="btn-pink w-full py-3 text-[14px]">View my tickets</button>
+  </div>
+</div>
+
+<!-- ══════════════ HOW IT WORKS ══════════════ -->
+<div id="m-how" class="ovl">
+  <div class="sheet p-6 max-w-[400px]">
+    <h3 class="text-[16px] font-bold text-[var(--navy)] mb-4">How booking works</h3>
+    <ol class="space-y-3 text-[12.5px] text-[var(--muted)] list-decimal pl-4 marker:text-[var(--pink)] marker:font-bold leading-snug">
+      <li>Sign in with your <b>@nift.ac.in</b> email and verify it.</li>
+      <li>Pick how many tickets you need (max <b>4 per student</b>), then choose your seats.</li>
+      <li>Fill in your details — guest names are required for entry.</li>
+      <li>Your seats are held for <b>5 minutes</b> while you pay via UPI.</li>
+      <li>Enter the UTR and upload a screenshot, then confirm.</li>
+      <li>An organiser verifies the payment; your ticket turns <b>Confirmed</b> in <b>My tickets</b>.</li>
+    </ol>
+    <div class="mt-5 pt-4 border-t border-[var(--line)]">
+      <p class="text-[11.5px] text-[var(--muted)] leading-snug"><b class="text-[var(--navy)]">At the gate:</b> carry your NIFT ID. No outside food. No refunds or cancellations.</p>
+    </div>
+    <button onclick="closeHowTo()" class="btn-pink w-full py-3 text-[14px] mt-5">Got it</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification,
+         sendPasswordResetEmail, onAuthStateChanged, signOut, reload } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getDatabase, ref, set, get, onValue, update, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
+
+/* ────────── Firebase ────────── */
+const firebaseConfig = {
+  apiKey: "AIzaSyCEDUyZD20PYvHMe-CX-_n2MWRvENiggd8",
+  authDomain: "apc-movie.firebaseapp.com",
+  databaseURL: "https://apc-movie-default-rtdb.firebaseio.com",
+  projectId: "apc-movie",
+  storageBucket: "apc-movie.firebasestorage.app",
+  messagingSenderId: "849582804075",
+  appId: "1:849582804075:web:44831ccf1309b106a2b52e",
+  measurementId: "G-D1EBGR4LJS"
+};
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getDatabase(app);
+
+/* ────────── Config ────────── */
+const CLOUDINARY_URL    = "https://api.cloudinary.com/v1_1/dzh1pbrcm/image/upload";
+const CLOUDINARY_PRESET = "movie_tickets";
+const MAX_SEATS = 4;
+const HOLD_MS   = 5 * 60 * 1000;
+const SEATS_PER_ROW = 30;
+const ROW_BLOCKS = [10, 10, 10];
+
+// BookMyShow-style tiers. Rows farthest from the screen are the premium block.
+const TIERS = [
+  { key: 'premium',   label: 'PREMIUM',   rows: ['A', 'B'] },
+  { key: 'executive', label: 'EXECUTIVE', rows: ['C', 'D', 'E'] },
+  { key: 'classic',   label: 'CLASSIC',   rows: ['F', 'G', 'H'] }
+];
+const DEFAULT_PRICING = { premium: 25, executive: 25, classic: 25 };
+const DEFAULT_EVENT = { title: 'NIFT Movie Night', language: 'Hindi', format: '2D', venue: 'NIFT Auditorium', date: 'TBA', time: 'TBA' };
+
+const UPI_ACCOUNTS = [
+  { upiId: 'chyasar2004-2@oksbi', payeeName: 'Yasar C H' },
+  { upiId: 'chyasar2004-1@oksbi', payeeName: 'Yasar C H' },
+  { upiId: 'chyasar2004@okaxis',  payeeName: 'Yasar C H' }
+];
+
+/* ────────── State ────────── */
+let user = null;
+let seats = {};                 // live movieSeats
+let myBookings = {};            // live bookings/<uid>
+let pricing = { ...DEFAULT_PRICING };
+let bookingOpen = true;
+let selected = [];
+let wantCount = 2;
+let signUpMode = false;
+let holdTimer = null, holdDeadline = 0;
+let heldSeats = [];             // seats currently held by this checkout
+let promo = null;               // { code, discount }
+let payment = null;             // { account, amount }
+let seatsBound = false, bookingsBound = false;
+let submitting = false;
+
+/* ────────── Helpers ────────── */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+function toast(msg, kind = 'ok') {
+  const t = $('toast');
+  t.textContent = msg;
+  t.style.background = kind === 'err' ? 'var(--pink)' : 'var(--navy)';
+  t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), 3400);
+}
+
+function tierOf(seatId) {
+  const row = seatId[0];
+  return TIERS.find(t => t.rows.includes(row)) || TIERS[TIERS.length - 1];
+}
+const priceOfTier = key => Number(pricing[key] ?? DEFAULT_PRICING[key] ?? 0);
+const priceOf = seatId => priceOfTier(tierOf(seatId).key);
+const seatNum = seatId => parseInt(seatId.slice(1), 10);
+
+function subtotal() { return selected.reduce((s, id) => s + priceOf(id), 0); }
+function discountTotal() { return promo ? Math.min(subtotal(), promo.discount * selected.length) : 0; }
+function grandTotal() { return Math.max(0, subtotal() - discountTotal()); }
+
+function isSeatFree(id) {
+  const d = seats[id];
+  if (!d) return true;
+  if (d.status === 'occupied' || d.status === 'blocked') return false;
+  if (d.status === 'held' && d.expiresAt > Date.now() && d.userId !== user?.uid) return false;
+  return true;
+}
+function myBookedSeatCount() {
+  if (!user) return 0;
+  return Object.entries(seats).filter(([, d]) => d.status === 'occupied' && d.userId === user.uid).length;
+}
+function seatsLeftForMe() { return Math.max(0, MAX_SEATS - myBookedSeatCount()); }
+
+/* ────────── View router ────────── */
+window.go = function (view) {
+  ['login', 'seats', 'tickets'].forEach(v => $('view-' + v).classList.toggle('active', v === view));
+  $('umenu').classList.add('hidden');
+  window.scrollTo(0, 0);
+  if (view === 'tickets') renderTickets();
+  $('paybar').classList.toggle('up', view === 'seats' && selected.length > 0);
+};
+
+window.openHowTo  = () => $('m-how').classList.add('open');
+window.closeHowTo = () => $('m-how').classList.remove('open');
+window.closeAll   = () => document.querySelectorAll('.ovl').forEach(o => o.classList.remove('open'));
+
+/* ────────── Auth UI ────────── */
+function authErr(msg) { const e = $('auth-err'); e.textContent = msg; e.classList.remove('hidden'); }
+function clearErr() { $('auth-err').classList.add('hidden'); }
+
+window.showForgot = () => { $('step-auth').classList.add('hidden'); $('step-forgot').classList.remove('hidden'); clearErr(); };
+window.showAuth = () => {
+  $('step-forgot').classList.add('hidden'); $('step-verify').classList.add('hidden');
+  $('step-auth').classList.remove('hidden'); clearErr(); $('in-pass').value = '';
+};
+function showVerify(email) {
+  $('step-auth').classList.add('hidden'); $('step-forgot').classList.add('hidden');
+  $('step-verify').classList.remove('hidden');
+  $('verify-mail').textContent = email;
+  clearErr();
+}
+
+$('auth-swap').addEventListener('click', () => {
+  signUpMode = !signUpMode;
+  $('auth-title').textContent = signUpMode ? 'Create account' : 'Sign in';
+  $('auth-sub').innerHTML = signUpMode
+    ? 'Sign up with your <b>@nift.ac.in</b> email address.'
+    : 'Only <b>@nift.ac.in</b> email addresses are allowed.';
+  $('auth-btn').textContent = signUpMode ? 'Create account' : 'Sign in';
+  $('auth-swap').innerHTML = signUpMode
+    ? 'Already registered? <b class="text-[var(--pink)]">Sign in</b>'
+    : 'New here? <b class="text-[var(--pink)]">Create an account</b>';
+  $('spam-note').classList.toggle('hidden', !signUpMode);
+  clearErr();
+});
+
+$('auth-btn').addEventListener('click', async () => {
+  const email = $('in-email').value.trim().toLowerCase();
+  const pass  = $('in-pass').value;
+  const btn   = $('auth-btn');
+
+  if (!email || !pass) return authErr('Enter your email and password.');
+  if (!email.endsWith('@nift.ac.in')) return authErr('Only @nift.ac.in email addresses are allowed.');
+  if (pass.length < 6) return authErr('Password must be at least 6 characters.');
+
+  clearErr();
+  btn.disabled = true; btn.textContent = 'Please wait…';
+  try {
+    if (signUpMode) {
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      await sendEmailVerification(cred.user);
+      toast('Account created — check your inbox to verify.');
+    } else {
+      await signInWithEmailAndPassword(auth, email, pass);
+    }
+  } catch (e) {
+    if (e.code === 'auth/email-already-in-use') authErr('That email is already registered — sign in instead.');
+    else if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') authErr('Wrong email or password.');
+    else if (e.code === 'auth/too-many-requests') authErr('Too many attempts. Try again in a few minutes.');
+    else authErr(e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = signUpMode ? 'Create account' : 'Sign in';
+  }
+});
+
+$('reset-btn').addEventListener('click', async () => {
+  const email = $('in-reset').value.trim().toLowerCase();
+  if (!email) return authErr('Enter your email address.');
+  const btn = $('reset-btn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    await sendPasswordResetEmail(auth, email);
+    toast('Reset link sent — check your inbox.');
+    showAuth();
+  } catch (e) { authErr(e.message); }
+  finally { btn.disabled = false; btn.textContent = 'Send reset link'; }
+});
+
+$('verify-check').addEventListener('click', async () => {
+  if (!auth.currentUser) return;
+  const btn = $('verify-check');
+  btn.disabled = true; btn.textContent = 'Checking…';
+  await reload(auth.currentUser);
+  if (auth.currentUser.emailVerified) { toast('Email verified.'); go('seats'); }
+  else authErr('Not verified yet — open the link in your inbox (check spam).');
+  btn.disabled = false; btn.textContent = "I've verified — continue";
+});
+
+$('verify-resend').addEventListener('click', async () => {
+  if (!auth.currentUser || auth.currentUser.emailVerified) return;
+  try { await sendEmailVerification(auth.currentUser); toast('Verification email resent.'); }
+  catch (e) { authErr(e.code === 'auth/too-many-requests' ? 'Please wait a moment before resending.' : e.message); }
+});
+
+$('verify-cancel').addEventListener('click', () => signOut(auth));
+$('logout-btn').addEventListener('click', async () => {
+  await releaseHolds();
+  await signOut(auth);
+  toast('Signed out.');
+});
+
+onAuthStateChanged(auth, u => {
+  if (u && u.emailVerified) {
+    user = u;
+    $('nav-out').classList.add('hidden');
+    $('nav-in').classList.remove('hidden');
+    $('nav-in').classList.add('flex');
+    $('menu-email').textContent = u.email;
+    $('avatar').textContent = (u.email[0] || '?').toUpperCase();
+    $('f-email').value = u.email;
+    bindBookings();
+    if ($('view-login').classList.contains('active')) go('seats');
+    renderMap();
+  } else {
+    user = null;
+    selected = []; heldSeats = [];
+    $('nav-out').classList.remove('hidden');
+    $('nav-in').classList.add('hidden');
+    $('nav-in').classList.remove('flex');
+    myBookings = {}; bookingsBound = false;
+    if (u && !u.emailVerified) { go('login'); showVerify(u.email); }
+    else { showAuth(); if ($('view-tickets').classList.contains('active')) go('seats'); }
+    renderMap(); updateBar();
+  }
+});
+
+/* ────────── Live data ────────── */
+onValue(ref(db, 'settings'), snap => {
+  const s = snap.val() || {};
+  pricing = { ...DEFAULT_PRICING, ...(s.pricing || {}) };
+  const ev = { ...DEFAULT_EVENT, ...(s.event || {}) };
+  $('ev-title').textContent  = ev.title;
+  $('ev-lang').textContent   = ev.language;
+  $('ev-format').textContent = ev.format;
+  $('ev-venue').textContent  = ev.venue;
+  $('ev-date').textContent   = ev.date;
+  $('ev-time').textContent   = ev.time;
+  document.title = ev.title + ' — Book Tickets';
+
+  bookingOpen = s.bookingStatus !== 'closed';
+  $('closed-box').classList.toggle('hidden', bookingOpen);
+  $('map-box').classList.toggle('hidden', !bookingOpen);
+  $('sel-bar').style.display = bookingOpen ? '' : 'none';
+  if (!bookingOpen) { $('map-load').classList.add('hidden'); selected = []; updateBar(); }
+  renderMap();
+});
+
+onValue(ref(db, 'movieSeats'), snap => {
+  seats = snap.val() || {};
+  seatsBound = true;
+  $('map-load').classList.add('hidden');
+  if (bookingOpen) $('map-box').classList.remove('hidden');
+
+  const dropped = selected.filter(id => !isSeatFree(id) && !heldSeats.includes(id));
+  if (dropped.length) {
+    selected = selected.filter(id => !dropped.includes(id));
+    toast(`Seat ${dropped.join(', ')} was just taken.`, 'err');
+  }
+  const allowed = seatsLeftForMe();
+  if (!heldSeats.length && selected.length > allowed) selected = selected.slice(0, allowed);
+
+  renderMap(); updateBar(); renderTickets();
+}, err => {
+  $('map-load').classList.add('hidden');
+  toast('Could not load the seat map.', 'err');
+  console.warn('movieSeats:', err.message);
+});
+
+function bindBookings() {
+  if (bookingsBound || !user) return;
+  bookingsBound = true;
+  onValue(ref(db, `bookings/${user.uid}`), snap => {
+    myBookings = snap.val() || {};
+    renderTickets();
+  }, err => console.warn('bookings:', err.message));
+}
+
+/* ────────── Seat count picker ────────── */
+window.openCount = function () {
+  const allowed = seatsLeftForMe();
+  $('count-max').textContent = MAX_SEATS;
+  const box = $('count-opts');
+  box.innerHTML = '';
+  for (let n = 1; n <= MAX_SEATS; n++) {
+    const b = document.createElement('button');
+    b.className = 'cnt' + (n === wantCount ? ' on' : '');
+    b.textContent = n;
+    b.disabled = n > allowed;
+    b.addEventListener('click', () => {
+      wantCount = n;
+      $('count-label').textContent = n;
+      [...box.children].forEach((c, i) => c.classList.toggle('on', i + 1 === n));
+      if (selected.length > n) { selected = selected.slice(0, n); renderMap(); updateBar(); }
+    });
+    box.appendChild(b);
+  }
+  if (allowed === 0) {
+    box.insertAdjacentHTML('afterend',
+      '<p class="text-[12px] text-[var(--pink)] font-semibold -mt-4 mb-5">You have already booked the maximum of ' + MAX_SEATS + ' seats.</p>');
+  }
+  $('m-count').classList.add('open');
+};
+window.closeCount = () => $('m-count').classList.remove('open');
+
+/* ────────── Seat map ────────── */
+function renderMap() {
+  const map = $('seat-map');
+  if (!map) return;
+  map.innerHTML = '';
+
+  TIERS.forEach(tier => {
+    const head = document.createElement('div');
+    head.className = 'cat-head';
+    head.innerHTML = `<span>${esc(tier.label)} — ₹${priceOfTier(tier.key)}</span>`;
+    map.appendChild(head);
+
+    tier.rows.forEach(row => map.appendChild(buildRow(row)));
+  });
+}
+
+function buildRow(row) {
+  const wrap = document.createElement('div');
+  wrap.className = 'srow';
+
+  const lbl = document.createElement('div');
+  lbl.className = 'rlbl';
+  lbl.textContent = row;
+  wrap.appendChild(lbl);
+
+  const blocks = document.createElement('div');
+  blocks.className = 'sblocks';
+
+  let n = 0;
+  ROW_BLOCKS.forEach((size, bi) => {
+    if (bi > 0) {
+      const gap = document.createElement('div');
+      gap.className = 'sgap';
+      blocks.appendChild(gap);
+    }
+    for (let i = 0; i < size && n < SEATS_PER_ROW; i++) {
+      n++;
+      blocks.appendChild(buildSeat(row + n, n));
+    }
+  });
+
+  wrap.appendChild(blocks);
+  const lbl2 = lbl.cloneNode(true);
+  wrap.appendChild(lbl2);
+  return wrap;
+}
+
+function buildSeat(seatId, num) {
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = 'seat';
+  el.textContent = num;
+  el.setAttribute('aria-label', `Seat ${seatId}`);
+
+  const d = seats[seatId];
+  const held = d && d.status === 'held' && d.expiresAt > Date.now();
+
+  if (d && d.status === 'blocked') {
+    el.classList.add('blocked'); el.disabled = true; el.title = 'Not available';
+  } else if (d && d.status === 'occupied') {
+    if (user && d.userId === user.uid) { el.classList.add('mine'); el.title = 'Booked by you'; }
+    else el.classList.add('sold');
+    el.disabled = true;
+  } else if (held && d.userId !== user?.uid) {
+    el.classList.add('held'); el.disabled = true; el.title = 'Being booked by someone else';
+  } else {
+    if (selected.includes(seatId)) el.classList.add('sel');
+    el.title = `${seatId} · ₹${priceOf(seatId)}`;
+    el.addEventListener('click', () => toggleSeat(seatId));
+  }
+  return el;
+}
+
+function toggleSeat(seatId) {
+  if (!bookingOpen) return toast('Bookings are closed.', 'err');
+  if (heldSeats.length) return toast('Finish or cancel the current booking first.', 'err');
+
+  if (selected.includes(seatId)) {
+    selected = selected.filter(s => s !== seatId);
+  } else {
+    if (!user) { toast('Sign in to select seats.', 'err'); go('login'); return; }
+    const allowed = Math.min(wantCount, seatsLeftForMe());
+    if (allowed === 0) return toast(`You have already booked ${MAX_SEATS} seats.`, 'err');
+    if (selected.length >= allowed) {
+      return toast(`You picked ${allowed} ticket${allowed > 1 ? 's' : ''}. Deselect one, or change the count above.`, 'err');
+    }
+    if (!isSeatFree(seatId)) return toast('That seat is no longer available.', 'err');
+    selected.push(seatId);
+  }
+  renderMap(); updateBar();
+}
+
+function updateBar() {
+  const bar = $('paybar');
+  const on = selected.length > 0 && $('view-seats').classList.contains('active');
+  bar.classList.toggle('up', on);
+  if (!selected.length) return;
+
+  const sorted = [...selected].sort((a, b) => a[0] === b[0] ? seatNum(a) - seatNum(b) : a[0].localeCompare(b[0]));
+  $('bar-seats').textContent = `${sorted.join(', ')}  ·  ${selected.length} ticket${selected.length > 1 ? 's' : ''}`;
+  $('bar-pay').textContent = `Pay ₹${grandTotal()}`;
+}
+
+/* ────────── Hold seats (atomic) ────────── */
+async function acquireHolds(ids) {
+  const got = [];
+  for (const id of ids) {
+    const res = await runTransaction(ref(db, `movieSeats/${id}`), cur => {
+      if (cur) {
+        if (cur.status === 'occupied' || cur.status === 'blocked') return;                 // abort
+        if (cur.status === 'held' && cur.expiresAt > Date.now() && cur.userId !== user.uid) return;
+      }
+      return { status: 'held', userId: user.uid, expiresAt: Date.now() + HOLD_MS };
+    });
+    if (!res.committed) {
+      for (const g of got) await releaseSeat(g);
+      return { ok: false, lost: id };
+    }
+    got.push(id);
+  }
+  return { ok: true, got };
+}
+
+async function releaseSeat(id) {
+  try {
+    await runTransaction(ref(db, `movieSeats/${id}`), cur => {
+      if (cur && cur.status === 'held' && cur.userId === user?.uid) return null;   // drop my hold
+      return;                                                                      // otherwise leave it alone
+    });
+  } catch (e) { console.warn('release', id, e.message); }
+}
+
+async function releaseHolds() {
+  if (!heldSeats.length) return;
+  const ids = [...heldSeats];
+  heldSeats = [];
+  stopTimer();
+  for (const id of ids) await releaseSeat(id);
+}
+
+function startTimer() {
+  holdDeadline = Date.now() + HOLD_MS;
+  stopTimer();
+  tick();
+  holdTimer = setInterval(tick, 1000);
+}
+function tick() {
+  const left = Math.max(0, holdDeadline - Date.now());
+  const m = String(Math.floor(left / 60000)).padStart(2, '0');
+  const s = String(Math.floor(left / 1000) % 60).padStart(2, '0');
+  $('co-timer').textContent = `${m}:${s}`;
+  if (left <= 0 && !submitting) {
+    stopTimer();
+    closeCheckout(true);
+    toast('Time expired — your seats were released.', 'err');
+  }
+}
+function stopTimer() { if (holdTimer) { clearInterval(holdTimer); holdTimer = null; } }
+
+/* ────────── Checkout ────────── */
+$('bar-pay').addEventListener('click', async () => {
+  if (!user) { go('login'); return; }
+  if (!selected.length) return;
+  if (!bookingOpen) return toast('Bookings are closed.', 'err');
+
+  const btn = $('bar-pay');
+  btn.disabled = true; btn.textContent = 'Holding seats…';
+
+  const res = await acquireHolds([...selected]);
+  btn.disabled = false; updateBar();
+
+  if (!res.ok) {
+    toast(`Seat ${res.lost} was taken a moment ago. Please pick another.`, 'err');
+    selected = selected.filter(s => s !== res.lost);
+    renderMap(); updateBar();
+    return;
+  }
+
+  heldSeats = res.got;
+  openCheckout();
+});
+
+function openCheckout() {
+  const sorted = [...selected].sort();
+  $('co-seats').textContent = sorted.join(', ');
+  $('co-total-1').textContent = '₹' + grandTotal();
+  $('co-title').textContent = 'Your details';
+  $('co-step1').classList.remove('hidden');
+  $('co-step2').classList.add('hidden');
+  $('f-email').value = user.email;
+  buildGuestInputs();
+  validateDetails();
+  $('m-checkout').classList.add('open');
+  startTimer();
+}
+
+async function closeCheckout(expired = false) {
+  $('m-checkout').classList.remove('open');
+  stopTimer();
+  await releaseHolds();
+  if (!expired) toast('Booking cancelled — seats released.');
+  selected = [];
+  resetForm();
+  renderMap(); updateBar();
+}
+
+$('co-close').addEventListener('click', () => closeCheckout());
+$('co-back').addEventListener('click', () => {
+  $('co-step1').classList.remove('hidden');
+  $('co-step2').classList.add('hidden');
+  $('co-title').textContent = 'Your details';
+});
+
+function buildGuestInputs() {
+  const box = $('f-guests');
+  const n = selected.length - 1;
+  box.innerHTML = '';
+  if (n <= 0) { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  box.innerHTML = `<label class="lbl">Guest names (required for entry)</label>
+    <div class="space-y-2">${Array.from({ length: n }, (_, i) =>
+      `<input type="text" class="fld guest" maxlength="80" placeholder="Guest ${i + 1} full name">`).join('')}</div>`;
+  box.querySelectorAll('.guest').forEach(i => i.addEventListener('input', validateDetails));
+}
+
+const detailFields = ['f-name', 'f-phone', 'f-sid', 'f-dept', 'f-wa', 'f-terms'];
+detailFields.forEach(id => {
+  const el = $(id);
+  el.addEventListener('input', validateDetails);
+  el.addEventListener('change', validateDetails);
+});
+$('f-wa-same').addEventListener('change', e => {
+  $('f-wa-box').classList.toggle('hidden', e.target.checked);
+  if (e.target.checked) $('f-wa').value = '';
+  validateDetails();
+});
+
+function validateDetails() {
+  const ok =
+    $('f-name').value.trim().length >= 3 &&
+    /^\d{10}$/.test($('f-phone').value.trim()) &&
+    $('f-sid').value.trim().length >= 1 &&
+    $('f-dept').value !== '' &&
+    ($('f-wa-same').checked || /^\d{10}$/.test($('f-wa').value.trim())) &&
+    [...document.querySelectorAll('.guest')].every(i => i.value.trim().length >= 3) &&
+    $('f-terms').checked;
+  $('co-next').disabled = !ok;
+  return ok;
+}
+
+/* ────────── Promo ────────── */
+$('promo-btn').addEventListener('click', async () => {
+  const code = $('f-promo').value.trim().toUpperCase();
+  const msg = $('promo-msg');
+  if (!code) return;
+
+  $('promo-btn').disabled = true;
+  try {
+    const snap = await get(ref(db, `promoCodes/${code}`));
+    const p = snap.val();
+    if (!p || typeof p.discount !== 'number') throw new Error('invalid');
+    if (typeof p.limit === 'number' && (p.used || 0) >= p.limit) throw new Error('exhausted');
+
+    promo = { code, discount: p.discount };
+    msg.textContent = `Applied — ₹${p.discount} off per seat.`;
+    msg.className = 'text-[11.5px] font-semibold mb-3 text-[var(--green)]';
+    $('f-promo').disabled = true;
+  } catch (e) {
+    promo = null;
+    msg.textContent = e.message === 'exhausted' ? 'This code has been fully used.' : 'Invalid promo code.';
+    msg.className = 'text-[11.5px] font-semibold mb-3 text-[var(--pink)]';
+    $('promo-btn').disabled = false;
+  }
+  msg.classList.remove('hidden');
+  $('co-total-1').textContent = '₹' + grandTotal();
+  updateBar();
+});
+
+/* ────────── Payment step ────────── */
+$('co-next').addEventListener('click', async () => {
+  if (!validateDetails()) return;
+
+  const amount = grandTotal();
+  const account = UPI_ACCOUNTS[Math.floor(Math.random() * UPI_ACCOUNTS.length)];
+  payment = { account, amount };
+
+  const upi = `upi://pay?pa=${encodeURIComponent(account.upiId)}&pn=${encodeURIComponent(account.payeeName)}&am=${amount}.00&cu=INR&tn=${encodeURIComponent('NIFT Movie Night')}`;
+  try {
+    $('upi-qr').src = await QRCode.toDataURL(upi, { width: 320, margin: 1 });
+  } catch (e) { console.warn('qr', e.message); }
+
+  $('upi-name').textContent = account.payeeName;
+  $('upi-id').textContent = account.upiId;
+  $('upi-link').href = upi;
+  $('co-total-2').textContent = '₹' + amount;
+
+  const rows = [];
+  TIERS.forEach(t => {
+    const inTier = selected.filter(s => tierOf(s).key === t.key);
+    if (inTier.length) rows.push(`<div class="flex justify-between"><span class="text-[var(--muted)]">${esc(t.label)} × ${inTier.length}</span><span class="font-semibold">₹${inTier.length * priceOfTier(t.key)}</span></div>`);
+  });
+  if (promo) rows.push(`<div class="flex justify-between text-[var(--green)]"><span>Promo ${esc(promo.code)}</span><span class="font-semibold">− ₹${discountTotal()}</span></div>`);
+  rows.push(`<div class="flex justify-between pt-1.5 border-t border-[var(--line)] text-[13.5px]"><span class="font-bold text-[var(--navy)]">Total</span><span class="font-black text-[var(--navy)]">₹${amount}</span></div>`);
+  $('co-breakdown').innerHTML = rows.join('');
+
+  $('co-step1').classList.add('hidden');
+  $('co-step2').classList.remove('hidden');
+  $('co-title').textContent = 'Payment';
+});
+
+$('co-submit').addEventListener('click', async () => {
+  const utr = $('f-utr').value.trim();
+  const file = $('f-shot').files?.[0];
+
+  if (utr.length < 6) return toast('Enter the UTR / transaction ID from your UPI app.', 'err');
+  if (!file) return toast('Upload a screenshot of the payment.', 'err');
+  if (file.size > 8 * 1024 * 1024) return toast('Screenshot is too large (max 8 MB).', 'err');
+  if (!heldSeats.length) return toast('Your seat hold expired. Please start again.', 'err');
+
+  const btn = $('co-submit');
+  submitting = true;
+  stopTimer();
+  btn.disabled = true; btn.textContent = 'Uploading screenshot…';
+
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('upload_preset', CLOUDINARY_PRESET);
+    const up = await fetch(CLOUDINARY_URL, { method: 'POST', body: fd });
+    const json = await up.json();
+    if (!json.secure_url) throw new Error('Screenshot upload failed.');
+
+    btn.textContent = 'Confirming…';
+
+    // Claim one use of the promo code. The database rules reject the increment
+    // once the code hits its limit, so the discount cannot be over-redeemed.
+    if (promo) {
+      let claimed = false;
+      try {
+        const res = await runTransaction(ref(db, `promoCodes/${promo.code}/used`), cur => (cur || 0) + 1);
+        claimed = res.committed;
+      } catch (e) { console.warn('promo:', e.message); }
+      if (!claimed) {
+        promo = null;
+        throw new Error('That promo code just ran out — reopen the booking to continue at full price.');
+      }
     }
 
-    function revalidateSelection() {
-        const prevCount = getUserBookedCount();
-        const allowed = Math.max(0, MAX_SEATS - prevCount);
-        
-        if (selectedSeats.length > allowed) {
-            selectedSeats = selectedSeats.slice(0, allowed);
-            if (allowed === 0) {
-                showToast(`You have already reached your limit of ${MAX_SEATS} booked seats.`, 'error');
-            } else {
-                showToast(`You previously booked ${prevCount} seat(s). Selection reduced to ${allowed}.`, 'error');
-            }
-        }
-    }
+    const ticketId = `NIFT-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 4096).toString(36).toUpperCase().padStart(3, '0')}`;
+    const seatList = [...heldSeats].sort();
+    const guestNames = [...document.querySelectorAll('.guest')].map(i => i.value.trim());
 
-    // UPI khate rotation sathi (Fakt Yasar C H che IDs)
-    const upiAccounts = [
-      { upiId: 'chyasar2004-2@oksbi', payeeName: 'Yasar C H' },
-      { upiId: 'chyasar2004-1@oksbi', payeeName: 'Yasar C H' },
-      { upiId: 'chyasar2004@okaxis', payeeName: 'Yasar C H' }
-    ];
-    let currentPaymentDetails = null;
-
-    // --- DOM Elements ---
-    const errLogin = document.getElementById('login-error');
-    const toast = document.getElementById('toast-message');
-    const btnProceed = document.getElementById('proceed-pay-btn');
-    const termsCheck = document.getElementById('terms-checkbox');
-    const waCheckbox = document.getElementById('form-wa-same');
-    const waGroup = document.getElementById('wa-group');
-    const waInput = document.getElementById('form-whatsapp');
-    const phoneInput = document.getElementById('form-phone');
-
-    // --- View Controller ---
-    window.switchView = function(viewId) {
-        document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
-        document.getElementById(`${viewId}-view`).classList.add('active');
-        
-        if (viewId === 'booking' || viewId === 'profile') {
-            document.getElementById('header-user-info').classList.remove('hidden');
-            document.getElementById('header-email').textContent = verifiedEmail || (currentUser ? currentUser.email : "");
-            document.getElementById('form-email').value = verifiedEmail || (currentUser ? currentUser.email : "");
-            
-            if(!unsubSeats) loadSeatsData(); 
-            
-            if (viewId === 'profile') {
-                renderProfileTickets();
-            }
-        } else {
-            document.getElementById('header-user-info').classList.add('hidden');
-        }
-    };
-
-    // --- Form UI Interactions ---
-    waCheckbox.addEventListener('change', (e) => {
-        if(e.target.checked) {
-            waGroup.classList.add('hidden');
-            waInput.value = '';
-        } else {
-            waGroup.classList.remove('hidden');
-        }
-        checkFormValidity();
+    await set(ref(db, `bookings/${user.uid}/${ticketId}`), {
+      ticketId,
+      userId: user.uid,
+      email: user.email,
+      bookerName: $('f-name').value.trim(),
+      guestNames,
+      phone: $('f-phone').value.trim(),
+      whatsapp: $('f-wa-same').checked ? $('f-phone').value.trim() : $('f-wa').value.trim(),
+      studentId: $('f-sid').value.trim(),
+      department: $('f-dept').value,
+      utr,
+      screenshotUrl: json.secure_url,
+      paidAmount: payment.amount,
+      payeeUsed: payment.account.payeeName,
+      promoCode: promo ? promo.code : 'None',
+      seats: seatList,
+      createdAt: new Date().toISOString()
     });
 
-    // --- Promo Code Flow ---
-    const promoCodeInput = document.getElementById('promo-code-input');
-    const applyPromoBtn = document.getElementById('apply-promo-btn');
-    const promoMessage = document.getElementById('promo-message');
-
-    applyPromoBtn.addEventListener('click', () => {
-        const code = promoCodeInput.value.trim().toUpperCase();
-        if(!code) return;
-
-        if (livePromoCodes[code]) {
-            currentDiscountPerSeat = parseInt(livePromoCodes[code].discount);
-            appliedPromoCode = code;
-            promoMessage.textContent = `Success! ₹${currentDiscountPerSeat} off per seat applied.`;
-            promoMessage.className = "text-xs mt-1 text-green-400 font-bold";
-            promoMessage.classList.remove('hidden');
-            applyPromoBtn.disabled = true;
-            promoCodeInput.disabled = true;
-        } else {
-            promoMessage.textContent = "Invalid or expired promo code.";
-            promoMessage.className = "text-xs mt-1 text-red-400";
-            promoMessage.classList.remove('hidden');
-        }
-        updateBookingPanel();
+    const seatUpdate = {};
+    seatList.forEach(id => {
+      seatUpdate[`movieSeats/${id}`] = {
+        status: 'occupied',
+        userId: user.uid,
+        ticketId,
+        verificationStatus: 'pending',
+        checkedIn: false
+      };
     });
+    await update(ref(db), seatUpdate);
 
-    // --- Auth & Login Flow ---
-    const authEmailInput = document.getElementById('auth-email');
-    const authPasswordInput = document.getElementById('auth-password');
-    const authActionBtn = document.getElementById('auth-action-btn');
-    const authToggleBtn = document.getElementById('auth-toggle-btn');
-    const authTitle = document.getElementById('auth-title');
+    heldSeats = []; selected = [];
+    $('m-checkout').classList.remove('open');
+    $('done-id').textContent = ticketId;
+    $('done-seats').textContent = seatList.join(', ');
+    $('m-done').classList.add('open');
+    resetForm();
+    renderMap(); updateBar();
 
-    authToggleBtn.addEventListener('click', () => {
-        isSignUpMode = !isSignUpMode;
-        if (isSignUpMode) {
-            authTitle.textContent = "Create Account";
-            authActionBtn.textContent = "Sign Up";
-            authToggleBtn.textContent = "Already have an account? Sign In";
-            document.getElementById('auth-subtitle').textContent = "Join with your @nift.ac.in email";
-            document.getElementById('auth-spam-notice').classList.remove('hidden');
-        } else {
-            authTitle.textContent = "Student Login";
-            authActionBtn.textContent = "Sign In";
-            authToggleBtn.textContent = "Need an account? Sign Up";
-            document.getElementById('auth-subtitle').textContent = "Access restricted to @nift.ac.in emails";
-            document.getElementById('auth-spam-notice').classList.add('hidden');
-        }
-        errLogin.classList.add('hidden');
-    });
+  } catch (e) {
+    console.warn('booking:', e.message);
+    toast(e.message || 'Could not complete the booking.', 'err');
+    startTimer();
+  } finally {
+    submitting = false;
+    btn.disabled = false; btn.textContent = 'Confirm booking';
+  }
+});
 
-    authActionBtn.addEventListener('click', async () => {
-        const email = authEmailInput.value.trim().toLowerCase();
-        const password = authPasswordInput.value;
-        
-        if (!email || !password) {
-            showLoginError("Please enter both email and password.");
-            return;
-        }
-        if (!email.endsWith('@nift.ac.in')) {
-            showLoginError("Access denied. Only @nift.ac.in emails are allowed.");
-            return;
-        }
-        if (password.length < 6) {
-            showLoginError("Password must be at least 6 characters.");
-            return;
-        }
-        
-        errLogin.classList.add('hidden');
-        authActionBtn.disabled = true;
-        authActionBtn.textContent = "Processing...";
+function resetForm() {
+  ['f-name', 'f-phone', 'f-sid', 'f-wa', 'f-utr', 'f-promo'].forEach(id => $(id).value = '');
+  $('f-dept').value = '';
+  $('f-terms').checked = false;
+  $('f-wa-same').checked = true;
+  $('f-wa-box').classList.add('hidden');
+  $('f-shot').value = '';
+  $('f-guests').innerHTML = '';
+  $('f-guests').classList.add('hidden');
+  $('f-promo').disabled = false;
+  $('promo-btn').disabled = false;
+  $('promo-msg').classList.add('hidden');
+  promo = null; payment = null;
+  $('co-next').disabled = true;
+}
 
-        try {
-            await randomDelay(300, 1500);
-            if (isSignUpMode) {
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                await sendEmailVerification(userCredential.user);
-                showToast("Account created! Please verify your email.", "success");
-            } else {
-                await signInWithEmailAndPassword(auth, email, password);
-                showToast("Logged in successfully!", "success");
-            }
-        } catch (error) {
-            console.warn("Auth info:", error.message);
-            if (error.code === 'auth/email-already-in-use') showLoginError("Email is already registered. Please sign in.");
-            else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') showLoginError("Invalid email or password. If you don't have an account, click Sign Up below.");
-            else showLoginError(error.message);
-        } finally {
-            authActionBtn.disabled = false;
-            authActionBtn.textContent = isSignUpMode ? "Sign Up" : "Sign In";
-        }
-    });
+/* ────────── My tickets ────────── */
+function renderTickets() {
+  if (!$('view-tickets').classList.contains('active')) return;
+  const list = $('tkt-list'), empty = $('tkt-empty');
+  $('tkt-load').classList.add('hidden');
 
-    // --- Forgot Password Flow ---
-    window.showForgotPassword = function() {
-        document.getElementById('auth-form-step').classList.add('hidden');
-        document.getElementById('forgot-password-step').classList.remove('hidden');
-        document.getElementById('auth-title').textContent = "Forgot Password";
-        document.getElementById('auth-subtitle').textContent = "";
-        errLogin.classList.add('hidden');
-    }
+  const ids = Object.keys(myBookings);
+  if (!user || !ids.length) {
+    list.classList.add('hidden'); empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden'); list.classList.remove('hidden');
+  list.innerHTML = '';
 
-    document.getElementById('send-reset-btn').addEventListener('click', async () => {
-        const email = document.getElementById('reset-email').value.trim().toLowerCase();
-        if (!email) {
-            showLoginError("Please enter your email.");
-            return;
-        }
-        
-        const btn = document.getElementById('send-reset-btn');
-        btn.disabled = true;
-        btn.textContent = "Sending...";
+  ids.sort((a, b) => new Date(myBookings[b].createdAt) - new Date(myBookings[a].createdAt));
 
-        try {
-            await sendPasswordResetEmail(auth, email);
-            showToast("Password reset link sent to your email!", "success");
-            showAuthForm();
-        } catch (error) {
-            showLoginError(error.message);
-        } finally {
-            btn.disabled = false;
-            btn.textContent = "Send Reset Link";
-        }
-    });
+  ids.forEach(id => {
+    const b = myBookings[id];
+    const liveSeats = (b.seats || []).filter(s => seats[s]?.ticketId === id && seats[s]?.status === 'occupied');
+    const cancelled = liveSeats.length === 0;
+    const anySeat = liveSeats[0] ? seats[liveSeats[0]] : null;
+    const status = cancelled ? 'cancelled'
+      : anySeat?.checkedIn ? 'checkedin'
+      : anySeat?.verificationStatus === 'approved' ? 'confirmed'
+      : anySeat?.verificationStatus === 'rejected' ? 'rejected' : 'pending';
 
-    document.getElementById('check-verify-btn').addEventListener('click', async () => {
-        if (auth.currentUser) {
-            const btn = document.getElementById('check-verify-btn');
-            btn.disabled = true;
-            btn.textContent = "Checking...";
-            
-            await reload(auth.currentUser);
-            if (auth.currentUser.emailVerified) {
-                currentUser = auth.currentUser;
-                verifiedEmail = auth.currentUser.email;
-                showToast("Email verified!", "success");
-                switchView('booking');
-            } else {
-                showLoginError("Email is not verified yet. Check your inbox/spam folder.");
-            }
-            
-            btn.disabled = false;
-            btn.textContent = "I have verified - Continue";
-        }
-    });
+    const badge = {
+      confirmed: ['Confirmed',  'background:var(--green-soft);color:var(--green)'],
+      pending:   ['Verifying',  'background:var(--amber-soft);color:var(--amber)'],
+      rejected:  ['Rejected',   'background:#ffeaee;color:var(--pink)'],
+      cancelled: ['Cancelled',  'background:#f0f0f0;color:#888'],
+      checkedin: ['Checked in', 'background:#eaf0ff;color:#2d5bd7']
+    }[status];
 
-    document.getElementById('resend-verify-btn').addEventListener('click', async () => {
-        if (auth.currentUser && !auth.currentUser.emailVerified) {
-            try {
-                await sendEmailVerification(auth.currentUser);
-                showToast("Verification email resent!", "success");
-            } catch (error) {
-                if(error.code === 'auth/too-many-requests') showLoginError("Please wait a moment before resending.");
-                else showLoginError(error.message);
-            }
-        }
-    });
+    const shown = cancelled ? (b.seats || []) : liveSeats;
+    const when = b.createdAt ? new Date(b.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
 
-    document.getElementById('cancel-verify-btn').addEventListener('click', () => signOut(auth));
+    const card = document.createElement('div');
+    card.className = 'tkt';
+    card.id = 'tkt-' + id;
+    card.innerHTML = `
+      <div class="bg-[var(--slate)] text-white px-5 py-3 flex items-center justify-between">
+        <div class="min-w-0">
+          <p class="text-[14px] font-bold truncate">${esc($('ev-title').textContent)}</p>
+          <p class="text-[11px] text-white/60">${esc($('ev-venue').textContent)} · ${esc($('ev-date').textContent)} · ${esc($('ev-time').textContent)}</p>
+        </div>
+        <span class="chip flex-shrink-0" style="${badge[1]}">${badge[0]}</span>
+      </div>
 
-    document.getElementById('logout-btn').addEventListener('click', () => {
-        signOut(auth).then(() => {
-            showToast("Logged out successfully");
-            selectedSeats = [];
-            if (unsubSeats) { unsubSeats(); unsubSeats = null; }
-        }).catch((error) => {
-            showToast("Error logging out", "error");
-        });
-    });
+      <div class="p-5 flex gap-5 items-center">
+        <div class="flex-shrink-0 bg-white p-1.5 rounded border border-[var(--line)]">
+          <img class="qr-slot w-24 h-24" data-qr="${esc(`TICKET:${id}|SEATS:${shown.join(',')}`)}" alt="Ticket QR code">
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold">Seats</p>
+          <p class="text-[20px] font-black text-[var(--navy)] leading-tight mb-2">${esc(shown.join(', ') || '—')}</p>
+          <p class="text-[11.5px] text-[var(--muted)]">Booking ID <span class="font-mono font-semibold text-[var(--navy)]">${esc(id)}</span></p>
+          <p class="text-[11.5px] text-[var(--muted)]">${esc(b.bookerName || '')}${(b.guestNames || []).length ? ' + ' + esc(b.guestNames.join(', ')) : ''}</p>
+        </div>
+      </div>
 
-    function showLoginError(msg) {
-        errLogin.textContent = msg;
-        errLogin.classList.remove('hidden');
-    }
+      <div class="tkt-perf px-5 py-3 flex items-center justify-between bg-[#fbfbfb]">
+        <div>
+          <p class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold">Paid</p>
+          <p class="text-[14px] font-bold text-[var(--navy)]">₹${Number(b.paidAmount || 0)}${b.promoCode && b.promoCode !== 'None' ? ` <span class="text-[10px] font-semibold text-[var(--green)]">${esc(b.promoCode)}</span>` : ''}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold">Booked on</p>
+          <p class="text-[11.5px] font-semibold text-[var(--navy)]">${esc(when)}</p>
+        </div>
+        <button data-dl="${esc(id)}" data-html2canvas-ignore="true" class="btn-ghost px-3.5 py-1.5 text-[12px]">Save</button>
+      </div>`;
+    list.appendChild(card);
+  });
 
-    function showVerificationStep() {
-        document.getElementById('auth-form-step').classList.add('hidden');
-        document.getElementById('auth-verify-step').classList.remove('hidden');
-        document.getElementById('forgot-password-step').classList.add('hidden');
-        errLogin.classList.add('hidden');
-    }
-    
-    function showAuthForm() {
-        document.getElementById('auth-verify-step').classList.add('hidden');
-        document.getElementById('forgot-password-step').classList.add('hidden');
-        document.getElementById('auth-form-step').classList.remove('hidden');
-        document.getElementById('auth-title').textContent = isSignUpMode ? "Create Account" : "Student Login";
-        document.getElementById('auth-subtitle').textContent = isSignUpMode ? "Join with your @nift.ac.in email" : "Access restricted to @nift.ac.in emails";
-        errLogin.classList.add('hidden');
-        authPasswordInput.value = "";
-    }
+  // Render QR codes locally (no third party ever sees a ticket ID)
+  list.querySelectorAll('.qr-slot').forEach(img => {
+    QRCode.toDataURL(img.dataset.qr, { width: 240, margin: 1 })
+      .then(url => { img.src = url; })
+      .catch(e => console.warn('qr', e.message));
+  });
 
-    onAuthStateChanged(auth, (user) => {
-        if (user && user.emailVerified) {
-            currentUser = user;
-            verifiedEmail = user.email;
-            
-            revalidateSelection();
-            renderSeatingChart();
-            updateBookingPanel();
-            
-            document.getElementById('header-login-btn').classList.add('hidden');
-            document.getElementById('header-user-info').classList.remove('hidden');
-            document.getElementById('header-email').textContent = verifiedEmail;
-            document.getElementById('form-email').value = verifiedEmail;
-            
-            document.getElementById('auth-prompt-container').classList.add('hidden');
-            document.getElementById('bookingForm').classList.remove('hidden');
-            
-            if(document.getElementById('login-view').classList.contains('active')) {
-                switchView('booking');
-            }
-        } else {
-            currentUser = null;
-            verifiedEmail = "";
-            
-            document.getElementById('header-login-btn').classList.remove('hidden');
-            document.getElementById('header-user-info').classList.add('hidden');
-            
-            document.getElementById('auth-prompt-container').classList.remove('hidden');
-            document.getElementById('bookingForm').classList.add('hidden');
-            
-            if (user && !user.emailVerified) {
-                currentUser = user;
-                switchView('login');
-                showVerificationStep();
-            } else {
-                showAuthForm();
-                if (document.getElementById('profile-view').classList.contains('active')) {
-                     switchView('booking');
-                }
-            }
-        }
-    });
+  list.querySelectorAll('[data-dl]').forEach(btn => {
+    btn.addEventListener('click', () => downloadTicket(btn.dataset.dl));
+  });
+}
 
-    // --- Database Fetching ---
-    async function loadSeatsData() {
-        await randomDelay(500, 3000);
+function downloadTicket(id) {
+  const el = $('tkt-' + id);
+  if (!el) return;
+  toast('Generating image…');
+  html2canvas(el, { backgroundColor: '#ffffff', scale: 2 })
+    .then(canvas => {
+      const a = document.createElement('a');
+      a.download = `NIFT_Ticket_${id}.png`;
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+    })
+    .catch(e => { console.warn('download', e.message); toast('Could not save the image — take a screenshot instead.', 'err'); });
+}
 
-        const seatsRef = ref(db, 'movieSeats');
-        const promosRef = ref(db, 'promoCodes');
-        const statusRef = ref(db, 'settings/bookingStatus'); // Live Global Booking Switch
-        
-        onValue(statusRef, (snapshot) => {
-            const status = snapshot.val();
-            if (status === 'closed') {
-                document.getElementById('booking-closed-message').classList.remove('hidden');
-                document.querySelector('.seating-area').classList.add('hidden');
-                document.querySelector('.booking-form').classList.add('hidden');
-            } else {
-                document.getElementById('booking-closed-message').classList.add('hidden');
-                document.querySelector('.seating-area').classList.remove('hidden');
-                document.querySelector('.booking-form').classList.remove('hidden');
-            }
-        });
+/* ────────── Misc ────────── */
+document.querySelectorAll('.ovl').forEach(o => {
+  o.addEventListener('click', e => {
+    if (e.target !== o) return;
+    if (o.id === 'm-checkout') return;   // never lose a hold by a stray click
+    o.classList.remove('open');
+  });
+});
 
-        onValue(promosRef, (snapshot) => {
-            livePromoCodes = snapshot.val() || {};
-        });
+document.addEventListener('click', e => {
+  if (!e.target.closest('#umenu') && !e.target.closest('#avatar')) $('umenu').classList.add('hidden');
+});
 
-        unsubSeats = onValue(seatsRef, (snapshot) => {
-            document.getElementById('seat-loading').style.display = 'none';
-            liveSeatsData = {};
-            
-            if (snapshot.exists()) {
-                liveSeatsData = snapshot.val();
-            }
-            
-            // Filter out selections that were booked or held by someone else
-            selectedSeats = selectedSeats.filter(seatId => {
-                const data = liveSeatsData[seatId];
-                if (!data) return true;
-                
-                const isOccupied = data.status === 'occupied';
-                const isHeldByOther = data.status === 'held' && data.expiresAt > Date.now() && data.userId !== (currentUser?.uid);
-                
-                if (isOccupied || isHeldByOther) {
-                    showToast(`Seat ${seatId} is no longer available.`, 'error');
-                    return false;
-                }
-                return true;
-            });
-            
-            revalidateSelection();
-            renderSeatingChart();
-            updateBookingPanel();
-            
-            if(document.getElementById('profile-view').classList.contains('active') && currentUser) {
-                renderProfileTickets();
-            }
-            
-        }, (error) => {
-            console.warn("Firebase listen warning:", error.message);
-            showToast("Lost connection to live seat map.", "error");
-        });
-    }
+// If the tab closes mid-checkout the hold is left behind, but it carries an
+// expiresAt — the seat-claim transaction lets the next booker take it over
+// once that passes, and the admin panel can sweep stale holds on demand.
 
-    // --- UI Rendering ---
-    function renderSeatingChart() {
-        const container = document.getElementById("seatingChart");
-        container.innerHTML = "";
-        const rows = ['A','B','C','D','E','F','G','H'];
-        
-        rows.forEach((r, ri) => {
-            if (ri === 4) {
-                const aisleH = document.createElement("div");
-                aisleH.className = "aisle-horizontal";
-                container.appendChild(aisleH);
-            }
-            
-            const rowDiv = document.createElement("div");
-            rowDiv.className = "seat-row";
-            
-            const label = document.createElement("div");
-            label.className = "row-label";
-            label.textContent = r;
-            rowDiv.appendChild(label);
-            
-            const seatsDiv = document.createElement("div");
-            seatsDiv.className = "seats";
-            
-            for (let i = 1; i <= 30; i++) {
-                if (i === 16) {
-                    const aisleV = document.createElement("div");
-                    aisleV.className = "aisle-vertical";
-                    seatsDiv.appendChild(aisleV);
-                }
-                
-                const seatId = r + i;
-                const seatEl = document.createElement("div");
-                seatEl.className = "seat";
-                seatEl.textContent = i;
-                
-                const seatData = liveSeatsData[seatId];
-                
-                if (seatData && seatData.status === 'blocked') {
-                    seatEl.classList.add("reserved");
-                    seatEl.title = "Blocked by Admin";
-                } else if (seatData && seatData.status === 'occupied') {
-                    seatEl.classList.add("occupied");
-                } else if (seatData && seatData.status === 'held' && seatData.expiresAt > Date.now()) {
-                    if (currentUser && seatData.userId === currentUser.uid) {
-                        seatEl.classList.add("selected"); // Shown as selected if held by YOU
-                    } else {
-                        seatEl.classList.add("held"); // Shown as purple if held by SOMEONE ELSE
-                    }
-                } else if (selectedSeats.includes(seatId)) {
-                    seatEl.classList.add("selected");
-                    seatEl.addEventListener("click", () => handleSeatClick(seatId));
-                } else {
-                    seatEl.addEventListener("click", () => handleSeatClick(seatId));
-                }
-                
-                seatsDiv.appendChild(seatEl);
-            }
-            rowDiv.appendChild(seatsDiv);
-            container.appendChild(rowDiv);
-        });
-    }
-
-    function handleSeatClick(seatId) {
-        const seatData = liveSeatsData[seatId];
-        
-        if (seatData) {
-            if (seatData.status === 'blocked') return;
-            if (seatData.status === 'occupied') {
-                if (currentUser && seatData.userId === currentUser.uid) {
-                    showToast("You have already booked this seat.", "error");
-                }
-                return;
-            }
-            if (seatData.status === 'held' && seatData.expiresAt > Date.now() && (!currentUser || seatData.userId !== currentUser.uid)) {
-                return; // Currently locked by someone else
-            }
-        }
-        
-        const idx = selectedSeats.indexOf(seatId);
-        if (idx > -1) {
-            selectedSeats.splice(idx, 1);
-        } else {
-            const previousCount = getUserBookedCount();
-            const allowed = MAX_SEATS - previousCount;
-            
-            if (selectedSeats.length >= allowed) {
-                if (previousCount > 0) {
-                    showToast(`Limit reached! You previously booked ${previousCount} seat(s).`, 'error');
-                } else {
-                    showToast(`Maximum ${MAX_SEATS} seats allowed per booking.`, 'error');
-                }
-                return;
-            }
-            selectedSeats.push(seatId);
-        }
-        renderSeatingChart();
-        updateBookingPanel();
-    }
-
-    function updateBookingPanel() {
-        const count = selectedSeats.length;
-        document.getElementById('selected-count').textContent = count;
-        document.getElementById('selected-seats-display').textContent = count > 0 ? selectedSeats.sort().join(', ') : 'None';
-        
-        // Calculate price with promo code
-        const finalPricePerSeat = Math.max(0, BASE_PRICE - currentDiscountPerSeat);
-        document.getElementById('total-price').textContent = count * finalPricePerSeat;
-        
-        updateGuestInputs();
-        checkFormValidity();
-    }
-
-    function updateGuestInputs() {
-        const container = document.getElementById('guest-names-container');
-        const count = selectedSeats.length;
-
-        if (count <= 1) {
-            container.classList.add('hidden');
-            container.innerHTML = '';
-            return;
-        }
-
-        container.classList.remove('hidden');
-
-        if (!document.getElementById('guest-names-title')) {
-            container.innerHTML = `
-                <label id="guest-names-title" class="block text-xs text-gray-400 mb-2 border-t border-gray-700 pt-3">Guest Names (Required for Entry)</label>
-                <div id="guest-inputs-wrapper" class="space-y-2"></div>
-            `;
-        }
-
-        const wrapper = document.getElementById('guest-inputs-wrapper');
-        const currentInputs = wrapper.querySelectorAll('.guest-name-input');
-        const targetInputCount = count - 1;
-
-        // Remove extra inputs if user deselected seats
-        if (currentInputs.length > targetInputCount) {
-            for (let i = currentInputs.length - 1; i >= targetInputCount; i--) {
-                currentInputs[i].remove();
-            }
-        }
-
-        // Add missing inputs
-        for (let i = currentInputs.length; i < targetInputCount; i++) {
-            const input = document.createElement('input');
-            input.type = "text";
-            input.className = "guest-name-input w-full px-3 py-2 bg-[#111] border border-gray-700 rounded text-sm text-white focus:border-movie-accent outline-none";
-            input.placeholder = `Guest ${i + 1} Full Name`;
-            input.required = true;
-            input.addEventListener('input', checkFormValidity);
-            wrapper.appendChild(input);
-        }
-    }
-
-    function checkFormValidity() {
-        const hasSeats = selectedSeats.length > 0;
-        const name = document.getElementById('form-name').value.trim();
-        const studentId = document.getElementById('form-student-id').value.trim();
-        const dept = document.getElementById('form-department').value;
-        const phone = phoneInput.value.trim();
-        const terms = termsCheck.checked;
-        
-        const phoneValid = phone.length >= 10;
-        let waValid = true;
-        if(!waCheckbox.checked) {
-            waValid = waInput.value.trim().length >= 10;
-        }
-        
-        let guestsValid = true;
-        document.querySelectorAll('.guest-name-input').forEach(input => {
-            if (input.value.trim() === '') guestsValid = false;
-        });
-        
-        btnProceed.disabled = !(hasSeats && name && studentId && dept && phoneValid && waValid && terms && guestsValid);
-    }
-
-    ['form-name', 'form-student-id', 'form-department', 'form-phone', 'form-whatsapp'].forEach(id => {
-        document.getElementById(id).addEventListener('input', checkFormValidity);
-    });
-    termsCheck.addEventListener('change', checkFormValidity);
-
-    // --- Seat Hold Timer & Payment Flow ---
-    
-    function startHoldTimer() {
-        let timeLeft = 5 * 60; // 5 minutes in seconds
-        const timerDisplay = document.getElementById('payment-timer');
-        
-        clearInterval(holdTimerInterval);
-        holdTimerInterval = setInterval(() => {
-            timeLeft--;
-            const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
-            const s = (timeLeft % 60).toString().padStart(2, '0');
-            timerDisplay.textContent = `${m}:${s}`;
-            
-            if (timeLeft <= 0) {
-                cancelPaymentHold(true);
-            }
-        }, 1000);
-    }
-
-    async function cancelPaymentHold(isAutoExpired = false) {
-        clearInterval(holdTimerInterval);
-        document.getElementById('paymentModal').style.display = 'none';
-        btnProceed.disabled = false;
-        btnProceed.textContent = "Proceed to Pay";
-        
-        try {
-            // Delete the holds to immediately free them up for others
-            const promises = selectedSeats.map(seatId => set(ref(db, `movieSeats/${seatId}`), null));
-            await Promise.all(promises);
-            
-            if (isAutoExpired) {
-                showToast("Time expired! Seats have been released.", "error");
-            } else {
-                showToast("Payment cancelled. Seats released.", "error");
-            }
-        } catch (error) {
-            console.warn("Notice: Error clearing hold", error.message);
-        }
-    }
-    
-    document.getElementById('cancelPaymentBtn').addEventListener('click', () => cancelPaymentHold(false));
-
-    btnProceed.addEventListener('click', async () => {
-        if (!currentUser) return;
-        
-        btnProceed.disabled = true;
-        btnProceed.textContent = "Locking Seats...";
-
-        // 1. Double check seats aren't already taken right now
-        let seatLost = false;
-        selectedSeats.forEach(seatId => {
-            const data = liveSeatsData[seatId];
-            if (data && (data.status === 'occupied' || (data.status === 'held' && data.expiresAt > Date.now() && data.userId !== currentUser.uid))) {
-                seatLost = true;
-            }
-        });
-
-        if (seatLost) {
-            showToast("One or more selected seats were just taken! Please select again.", "error");
-            btnProceed.disabled = false;
-            btnProceed.textContent = "Proceed to Pay";
-            return;
-        }
-
-        // 2. Write Hold to Firebase
-        try {
-            const promises = selectedSeats.map(seatId => {
-                return set(ref(db, `movieSeats/${seatId}`), {
-                    status: 'held',
-                    userId: currentUser.uid,
-                    expiresAt: Date.now() + 5 * 60 * 1000 // 5 minutes
-                });
-            });
-            await Promise.all(promises);
-            
-            // 3. Prepare Payment UI
-            const count = selectedSeats.length;
-            const amount = count * Math.max(0, BASE_PRICE - currentDiscountPerSeat);
-            const account = upiAccounts[Math.floor(Math.random() * upiAccounts.length)];
-            currentPaymentDetails = { account: account, amount: amount };
-
-            const upiString = `upi://pay?pa=${account.upiId}&pn=${encodeURIComponent(account.payeeName)}&am=${amount}.00&cu=INR`;
-            const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(upiString)}&color=000000&bgcolor=ffffff`;
-            
-            document.getElementById('paymentQrImage').src = qrApiUrl;
-            document.getElementById('modal-amount').textContent = amount;
-            document.getElementById('qrCodeInfo').innerHTML = `Payee: <b>${account.payeeName}</b><br>UPI: ${account.upiId}`;
-            document.getElementById('payment-utr').value = '';
-            document.getElementById('payment-screenshot').value = '';
-            
-            document.getElementById('paymentModal').style.display = 'flex';
-            startHoldTimer();
-
-        } catch (error) {
-            console.warn("Hold issue:", error.message);
-            showToast("Network error trying to hold seats.", "error");
-            btnProceed.disabled = false;
-            btnProceed.textContent = "Proceed to Pay";
-        }
-    });
-
-    document.getElementById('submitPaymentBtn').addEventListener('click', async () => {
-        const utr = document.getElementById('payment-utr').value.trim();
-        const screenshotInput = document.getElementById('payment-screenshot');
-
-        if (utr.length < 6) {
-            showToast("Please enter a valid Transaction ID", "error");
-            return;
-        }
-
-        if (!screenshotInput.files || screenshotInput.files.length === 0) {
-            showToast("Please upload a payment screenshot", "error");
-            return;
-        }
-
-        const btn = document.getElementById('submitPaymentBtn');
-        btn.disabled = true;
-        btn.textContent = "Uploading Image...";
-        
-        // Pause timer while uploading so it doesn't expire during network lag
-        clearInterval(holdTimerInterval);
-
-        try {
-            // Upload image to Cloudinary
-            const file = screenshotInput.files[0];
-            const imgData = new FormData();
-            imgData.append('file', file);
-            imgData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-            
-            const uploadRes = await fetch(CLOUDINARY_URL, { method: 'POST', body: imgData });
-            const uploadJson = await uploadRes.json();
-            
-            if (!uploadJson.secure_url) {
-                throw new Error("Failed to upload image. Check Cloudinary settings.");
-            }
-            const screenshotUrl = uploadJson.secure_url;
-            
-            btn.textContent = "Processing Booking...";
-
-            const ticketId = `NIFT-${Date.now().toString().slice(-5)}-${Math.floor(Math.random()*100)}`;
-            const waNumber = waCheckbox.checked ? phoneInput.value.trim() : waInput.value.trim();
-            const guestNames = Array.from(document.querySelectorAll('.guest-name-input')).map(input => input.value.trim());
-
-            const formData = {
-                ticketId: ticketId,
-                bookerName: document.getElementById('form-name').value.trim(),
-                guestNames: guestNames,
-                phone: phoneInput.value.trim(),
-                whatsapp: waNumber,
-                studentId: document.getElementById('form-student-id').value.trim(),
-                department: document.getElementById('form-department').value,
-                email: verifiedEmail,
-                utr: utr,
-                screenshotUrl: screenshotUrl,
-                paidAmount: currentPaymentDetails.amount,
-                payeeUsed: currentPaymentDetails.account.payeeName,
-                promoCode: appliedPromoCode || "None",
-                userId: currentUser.uid,
-                timestamp: new Date().toISOString()
-            };
-
-            // Finalize seats
-            const promises = selectedSeats.map(seatId => {
-                return set(ref(db, `movieSeats/${seatId}`), {
-                    status: 'occupied',
-                    seatId: seatId,
-                    ...formData
-                });
-            });
-
-            await Promise.all(promises);
-
-            document.getElementById('paymentModal').style.display = 'none';
-            showTicketModal(ticketId, selectedSeats);
-            
-            // Reset Booking State
-            selectedSeats = [];
-            document.getElementById('bookingForm').reset();
-            document.getElementById('guest-names-container').innerHTML = '';
-            document.getElementById('guest-names-container').classList.add('hidden');
-            waGroup.classList.add('hidden');
-            termsCheck.checked = false;
-            
-            // Reset Promo Code
-            currentDiscountPerSeat = 0;
-            appliedPromoCode = null;
-            promoCodeInput.value = "";
-            promoCodeInput.disabled = false;
-            applyPromoBtn.disabled = false;
-            promoMessage.classList.add('hidden');
-            
-            updateBookingPanel();
-            
-        } catch (error) {
-            console.warn("Booking notice:", error.message);
-            showToast("Failed to process booking.", "error");
-            startHoldTimer(); // Resume timer if failed
-        } finally {
-            btn.disabled = false;
-            btn.textContent = "Confirm Payment";
-            btnProceed.disabled = false;
-            btnProceed.textContent = "Proceed to Pay";
-        }
-    });
-
-    // --- Profile & Tickets Generation ---
-    function renderProfileTickets() {
-        document.getElementById('profile-loading').style.display = 'none';
-        const container = document.getElementById('tickets-container');
-        const noTicketsMsg = document.getElementById('no-tickets-msg');
-        container.innerHTML = '';
-        
-        const userTickets = {};
-        Object.entries(liveSeatsData).forEach(([seatId, data]) => {
-            if(data.userId === currentUser.uid && data.status === 'occupied') {
-                if(!userTickets[data.ticketId]) {
-                    userTickets[data.ticketId] = {
-                        ticketId: data.ticketId,
-                        bookerName: data.bookerName,
-                        guestNames: data.guestNames || [],
-                        seats: [],
-                        timestamp: data.timestamp,
-                        amountPaid: data.paidAmount || 0, // Fallback if saved earlier
-                        promoCode: data.promoCode || "None"
-                    };
-                }
-                userTickets[data.ticketId].seats.push(seatId);
-            }
-        });
-
-        const ticketIds = Object.keys(userTickets);
-        
-        if (ticketIds.length === 0) {
-            container.classList.add('hidden');
-            noTicketsMsg.classList.remove('hidden');
-            return;
-        }
-
-        noTicketsMsg.classList.add('hidden');
-        container.classList.remove('hidden');
-
-        ticketIds.sort((a, b) => new Date(userTickets[b].timestamp) - new Date(userTickets[a].timestamp));
-
-        ticketIds.forEach(tId => {
-            const tk = userTickets[tId];
-            const dateStr = new Date(tk.timestamp).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
-            
-            const qrData = encodeURIComponent(`TICKET:${tk.ticketId}|SEATS:${tk.seats.join(',')}|NAME:${tk.bookerName}`);
-            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrData}&color=000000&bgcolor=ffffff`;
-
-            const guestHtml = tk.guestNames.length > 0 
-                ? `<p class="text-sm text-gray-400 mb-1">Guests: <span class="text-gray-300">${tk.guestNames.join(', ')}</span></p>` 
-                : '';
-
-            const card = document.createElement('div');
-            // Give card an ID so we can screenshot it
-            card.id = `ticket-card-${tk.ticketId}`;
-            card.className = "ticket-card flex flex-col md:flex-row items-center p-5 md:p-6 gap-6 relative";
-            
-            card.innerHTML = `
-                <div class="flex-shrink-0 bg-white p-2 rounded-lg">
-                    <!-- Added crossorigin to prevent canvas taint issues -->
-                    <img src="${qrUrl}" alt="Ticket QR" class="w-24 h-24 md:w-32 md:h-32 object-cover" crossorigin="anonymous">
-                </div>
-                <div class="flex-grow w-full text-center md:text-left border-t md:border-t-0 md:border-l border-gray-700 pt-4 md:pt-0 md:pl-6">
-                    <div class="text-movie-accent text-xs font-bold tracking-widest mb-1 uppercase">Admit ${tk.seats.length}</div>
-                    <h4 class="text-2xl font-black text-white mb-1">Seats: ${tk.seats.sort().join(', ')}</h4>
-                    <p class="text-sm text-gray-400 mb-1">Ticket ID: <span class="font-mono text-gray-300">${tk.ticketId}</span></p>
-                    ${guestHtml}
-                    <div class="grid grid-cols-2 gap-3 text-xs text-left mt-3">
-                        <div class="bg-[#111] p-2 rounded border border-gray-800">
-                            <span class="block text-gray-500 mb-0.5">Booked On</span>
-                            <span class="text-gray-300 font-medium">${dateStr}</span>
-                        </div>
-                        <div class="bg-[#111] p-2 rounded border border-gray-800">
-                            <span class="block text-gray-500 mb-0.5">Total Paid</span>
-                            <span class="text-green-400 font-bold text-sm">₹${tk.amountPaid}</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Download Button (Ignored in screenshot using data-html2canvas-ignore) -->
-                <button onclick="downloadTicket('${tk.ticketId}')" data-html2canvas-ignore="true" class="md:absolute top-4 right-4 mt-4 md:mt-0 w-full md:w-auto px-3 py-1.5 bg-gray-800 border border-gray-600 hover:bg-movie-accent hover:text-black hover:border-movie-accent text-white rounded text-xs font-bold transition flex items-center justify-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> Download
-                </button>
-            `;
-            container.appendChild(card);
-        });
-    }
-
-    // --- Image Downloading Logic ---
-    window.downloadTicket = function(ticketId) {
-        const cardElement = document.getElementById(`ticket-card-${ticketId}`);
-        if (!cardElement) return;
-        
-        showToast("Generating image...", "success");
-        
-        // Use html2canvas to capture the ticket div
-        html2canvas(cardElement, {
-            backgroundColor: '#1e1e1e', // Match dark theme
-            scale: 2, // High resolution
-            useCORS: true // Allow cross-origin for the QR code image
-        }).then(canvas => {
-            // Convert to PNG and download
-            const image = canvas.toDataURL("image/png");
-            const link = document.createElement('a');
-            link.download = `NIFT_Movie_Ticket_${ticketId}.png`;
-            link.href = image;
-            link.click();
-        }).catch(err => {
-            console.warn("Screenshot generation notice:", err.message);
-            showToast("Failed to download image. Try taking a screenshot manually.", "error");
-        });
-    }
-
-    function showTicketModal(ticketId, seatsArr) {
-        const qrData = encodeURIComponent(`TICKET:${ticketId}|SEATS:${seatsArr.join(',')}`);
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${qrData}&color=000000&bgcolor=ffffff`;
-        
-        document.getElementById('successTicketQr').src = qrUrl;
-        document.getElementById('successTicketId').textContent = ticketId;
-        document.getElementById('successTicketSeats').textContent = seatsArr.sort().join(', ');
-        
-        document.getElementById('ticketSuccessModal').style.display = 'flex';
-    }
-
-    // --- Utility ---
-    function showToast(msg, type = 'success') {
-        toast.className = `fixed bottom-6 right-6 transform z-50 px-5 py-3 rounded-lg font-medium shadow-2xl flex items-center gap-3 text-sm transition-all duration-300`;
-        if (type === 'success') {
-            toast.classList.add('bg-green-600', 'text-white');
-            toast.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> <span>${msg}</span>`;
-        } else {
-            toast.classList.add('bg-red-600', 'text-white');
-            toast.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> <span>${msg}</span>`;
-        }
-        
-        requestAnimationFrame(() => {
-            toast.classList.remove('translate-y-20', 'opacity-0');
-            toast.classList.add('translate-y-0', 'opacity-100');
-        });
-        
-        setTimeout(() => {
-            toast.classList.remove('translate-y-0', 'opacity-100');
-            toast.classList.add('translate-y-20', 'opacity-0');
-        }, 4000);
-    }
-
-    loadSeatsData();
-  </script>
+$('count-label').textContent = wantCount;
+</script>
 </body>
 </html>
