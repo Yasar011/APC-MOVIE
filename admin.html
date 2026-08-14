@@ -123,6 +123,7 @@
     <div class="px-4 border-b border-[var(--line)] flex gap-6 overflow-x-auto">
       <button class="tab on" data-tab="bookings">Bookings</button>
       <button class="tab" data-tab="seats">Seats</button>
+      <button class="tab" data-tab="manual">Manual booking</button>
       <button class="tab" data-tab="promos">Promo codes</button>
       <button class="tab" data-tab="settings">Event &amp; pricing</button>
     </div>
@@ -193,6 +194,29 @@
       </div>
     </div>
 
+    <!-- MANUAL BOOKING -->
+    <div id="p-manual" class="pane p-5">
+      <h3 class="text-[14px] font-bold text-[var(--navy)] mb-1">Add a walk-in booking</h3>
+      <p class="text-[12px] text-[var(--muted)] mb-4">
+        For anyone booked outside the app — at the door, over WhatsApp, whatever. Creates the ticket already
+        confirmed, and the seats go occupied on the public map immediately.
+      </p>
+
+      <label class="lbl">Seats</label>
+      <input id="manual-seats" class="fld uppercase mb-1" placeholder="C5, C6, C7">
+      <p id="manual-seats-msg" class="text-[11.5px] mb-3 hidden"></p>
+
+      <div id="manual-names" class="hidden mb-4"></div>
+
+      <div class="grid md:grid-cols-3 gap-3 mb-4">
+        <div><label class="lbl">Phone (optional)</label><input id="manual-phone" class="fld" maxlength="20"></div>
+        <div><label class="lbl">Student ID (optional)</label><input id="manual-sid" class="fld" maxlength="40"></div>
+        <div><label class="lbl">Department (optional)</label><input id="manual-dept" class="fld" maxlength="40"></div>
+      </div>
+
+      <button id="manual-create" class="btn-pink px-6 py-2.5 text-[13px]">Create booking</button>
+    </div>
+
     <!-- PROMOS -->
     <div id="p-promos" class="pane p-5">
       <div class="grid md:grid-cols-3 gap-3 mb-4">
@@ -213,7 +237,22 @@
         <div><label class="lbl">Format</label><input id="ev-format" class="fld"></div>
         <div><label class="lbl">Venue</label><input id="ev-venue" class="fld"></div>
         <div><label class="lbl">Date</label><input id="ev-date" class="fld" placeholder="Sat, 12 Sep"></div>
-        <div><label class="lbl">Show time</label><input id="ev-time" class="fld" placeholder="6:30 PM"></div>
+        <div><label class="lbl">Show time</label><input id="ev-time" class="fld" placeholder="10:00 PM"></div>
+        <div><label class="lbl">Gate opens</label><input id="ev-gateopen" class="fld" placeholder="9:30 PM"></div>
+        <div><label class="lbl">Gate closes</label><input id="ev-gateclose" class="fld" placeholder="9:50 PM"></div>
+      </div>
+      <p class="text-[12px] text-[var(--muted)] mb-5 -mt-3">Shown on the booking page and on every ticket, so students know exactly when the doors shut.</p>
+
+      <h3 class="text-[14px] font-bold text-[var(--navy)] mb-1">Club intro</h3>
+      <p class="text-[12px] text-[var(--muted)] mb-3">The banner students see above the seat map.</p>
+      <div class="grid md:grid-cols-2 gap-3 mb-3">
+        <div><label class="lbl">Club name</label><input id="club-name-in" class="fld" placeholder="APC Club"></div>
+        <div><label class="lbl">Tagline</label><input id="club-tagline-in" class="fld" placeholder="Presented by the APC Club"></div>
+      </div>
+      <div class="grid md:grid-cols-3 gap-3 mb-5">
+        <div><label class="lbl">Highlight 1</label><input id="club-pt-0" class="fld" maxlength="120"></div>
+        <div><label class="lbl">Highlight 2</label><input id="club-pt-1" class="fld" maxlength="120"></div>
+        <div><label class="lbl">Highlight 3</label><input id="club-pt-2" class="fld" maxlength="120"></div>
       </div>
 
       <h3 class="text-[14px] font-bold text-[var(--navy)] mb-1">Booking window</h3>
@@ -291,11 +330,25 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
+/* Bootstrap organiser. Publishing the rules is enough to get in — no roles/
+   entry needs to exist first. A Firebase UID is not a credential: knowing it
+   grants nothing without that account's password, so it is safe in source.
+   Everyone else is granted access via roles/<uid> in the Firebase console. */
+const OWNER_UID = 'kGmSLYoXlUgrdAfKogkfzmPWrrL2';
+
 const ROWS = ['A','B','C','D','E','F','G','H'];
 const SEATS_PER_ROW = 30;
 const DEFAULT_PRICING = { premium: 0, executive: 0, classic: 0 };
-const DEFAULT_EVENT = { title: 'Dhurandhar', language: 'Hindi', format: '2D', venue: 'NIFT Auditorium', date: 'TBA', time: 'TBA' };
+const DEFAULT_EVENT = {
+  title: 'Shershaah', language: 'Hindi', format: '2D', venue: 'NIFT Auditorium',
+  date: 'TBA', time: '10:00 PM', gateOpen: '9:30 PM', gateClose: '9:50 PM'
+};
+const DEFAULT_CLUB = {
+  name: 'APC Club', tagline: 'Presented by the APC Club',
+  points: ['Student-run, student-picked screenings', 'Free entry for every NIFT student', 'One night, one screen, one big room']
+};
 const money = n => n > 0 ? '₹' + n : 'Free';
+const WALKIN_UID = 'walkin';   // fixed namespace for bookings entered by an organiser
 
 let me = null;
 let seats = {};
@@ -358,7 +411,9 @@ onAuthStateChanged(auth, async user => {
     rulesMissing = /permission/i.test(e.message || '');
   }
 
-  if (role !== 'admin') {
+  // A permission error on roles/ means nothing will work yet, so the setup
+  // screen wins even for the owner.
+  if (rulesMissing || (role !== 'admin' && user.uid !== OWNER_UID)) {
     me = null;
     $('denied-uid').textContent = user.uid;
     $('denied-setup').classList.toggle('hidden', !rulesMissing);
@@ -402,6 +457,15 @@ function bindData() {
 
     const ev = { ...DEFAULT_EVENT, ...(v.event || {}) };
     ['title','language','format','venue','date','time'].forEach(k => { $('ev-' + k).value = ev[k]; });
+    $('ev-gateopen').value  = ev.gateOpen;
+    $('ev-gateclose').value = ev.gateClose;
+
+    const cl = { ...DEFAULT_CLUB, ...(v.club || {}) };
+    const pts = (v.club && v.club.points) || DEFAULT_CLUB.points;
+    $('club-name-in').value = cl.name;
+    $('club-tagline-in').value = cl.tagline;
+    [0, 1, 2].forEach(i => { $('club-pt-' + i).value = pts[i] || ''; });
+
     const pr = { ...DEFAULT_PRICING, ...(v.pricing || {}) };
     ['premium','executive','classic'].forEach(k => { $('pr-' + k).value = pr[k]; });
 
@@ -665,6 +729,111 @@ $('unblock-btn').addEventListener('click', async () => {
   catch (e) { dbErr(e); }
 });
 
+/* ────────── Manual (walk-in) booking ────────── */
+const SEAT_ID_RE = /^[A-H](?:[1-9]|[12]\d|30)$/;
+
+function parseSeatList(raw) {
+  return raw.trim().toUpperCase().split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function manualSeatState() {
+  const list = parseSeatList($('manual-seats').value);
+  const bad = list.filter(s => !SEAT_ID_RE.test(s));
+  const taken = list.filter(s => !bad.includes(s) && seats[s] &&
+    (seats[s].status === 'occupied' || seats[s].status === 'blocked' ||
+     (seats[s].status === 'held' && (seats[s].expiresAt || 0) > Date.now())));
+  return { list, bad, taken, ok: list.length > 0 && !bad.length && !taken.length };
+}
+
+function renderManualState() {
+  const { list, bad, taken, ok } = manualSeatState();
+  const msg = $('manual-seats-msg');
+
+  if (!list.length) {
+    msg.classList.add('hidden');
+  } else if (bad.length) {
+    msg.textContent = `Not a valid seat id: ${bad.join(', ')}`;
+    msg.className = 'text-[11.5px] mb-3 text-[var(--pink)] font-semibold';
+    msg.classList.remove('hidden');
+  } else if (taken.length) {
+    msg.textContent = `Already taken: ${taken.join(', ')}`;
+    msg.className = 'text-[11.5px] mb-3 text-[var(--pink)] font-semibold';
+    msg.classList.remove('hidden');
+  } else {
+    msg.textContent = `${list.length} seat${list.length > 1 ? 's' : ''} free and ready to book.`;
+    msg.className = 'text-[11.5px] mb-3 text-[var(--green)] font-semibold';
+    msg.classList.remove('hidden');
+  }
+
+  const box = $('manual-names');
+  if (!ok) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+  box.classList.remove('hidden');
+  const sorted = [...list].sort((a, b) => a[0] === b[0] ? +a.slice(1) - +b.slice(1) : a[0].localeCompare(b[0]));
+  box.innerHTML = `<label class="lbl">Name for each seat</label>
+    <div class="space-y-2">${sorted.map(s =>
+      `<div class="flex gap-2 items-center">
+         <span class="text-[11px] font-mono font-bold text-[var(--navy)] w-9 flex-shrink-0">${esc(s)}</span>
+         <input type="text" class="fld manual-name" data-seat="${esc(s)}" maxlength="80" placeholder="Full name">
+       </div>`).join('')}</div>`;
+}
+
+$('manual-seats').addEventListener('input', renderManualState);
+
+$('manual-create').addEventListener('click', async () => {
+  const { list, ok } = manualSeatState();
+  if (!ok) return toast('Fix the seat list above first.', 'err');
+
+  const nameInputs = [...document.querySelectorAll('.manual-name')];
+  const seatList = nameInputs.map(i => i.dataset.seat);
+  const names = nameInputs.map(i => i.value.trim());
+  const missing = names.some(n => n.length < 2);
+  if (missing) return toast('Enter a name (2+ characters) for every seat.', 'err');
+
+  const btn = $('manual-create');
+  btn.disabled = true; btn.textContent = 'Creating…';
+
+  try {
+    // Re-check right before writing — someone else may have taken a seat while
+    // this form was open.
+    const stillTaken = seatList.filter(s =>
+      seats[s] && (seats[s].status === 'occupied' || seats[s].status === 'blocked' ||
+        (seats[s].status === 'held' && (seats[s].expiresAt || 0) > Date.now())));
+    if (stillTaken.length) throw new Error(`Just taken: ${stillTaken.join(', ')}. Remove them and try again.`);
+
+    const ticketId = `NIFT-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 4096).toString(36).toUpperCase().padStart(3, '0')}`;
+    const record = {
+      ticketId, userId: WALKIN_UID,
+      bookerName: names[0], guestNames: names.slice(1),
+      paidAmount: 0, promoCode: 'None',
+      seats: seatList, createdAt: new Date().toISOString()
+    };
+    const phone = $('manual-phone').value.trim();
+    const sid = $('manual-sid').value.trim();
+    const dept = $('manual-dept').value.trim();
+    if (phone) record.phone = phone;
+    if (sid) record.studentId = sid;
+    if (dept) record.department = dept;
+
+    const patch = { [`bookings/${WALKIN_UID}/${ticketId}`]: record };
+    seatList.forEach(id => {
+      // 'pending' here matches the student free-booking path — paidAmount is 0,
+      // so the badge and gate logic already treat it as good to go without a
+      // separate "Verified" state that would imply there was something to check.
+      patch[`movieSeats/${id}`] = { status: 'occupied', userId: WALKIN_UID, ticketId, verificationStatus: 'pending', checkedIn: false };
+    });
+    await update(ref(db), patch);
+
+    toast(`Booking ${ticketId} created for ${seatList.join(', ')}.`);
+    $('manual-seats').value = ''; $('manual-phone').value = ''; $('manual-sid').value = ''; $('manual-dept').value = '';
+    renderManualState();
+  } catch (e) {
+    if (e.message?.startsWith('Just taken')) toast(e.message, 'err');
+    else dbErr(e);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Create booking';
+  }
+});
+
 function staleHolds() {
   return Object.entries(seats)
     .filter(([, d]) => d?.status === 'held' && (d.expiresAt || 0) < Date.now())
@@ -814,6 +983,14 @@ function renderPromos() {
 $('settings-save').addEventListener('click', async () => {
   const event = {};
   ['title','language','format','venue','date','time'].forEach(k => { event[k] = $('ev-' + k).value.trim().slice(0, 120); });
+  event.gateOpen  = $('ev-gateopen').value.trim().slice(0, 120);
+  event.gateClose = $('ev-gateclose').value.trim().slice(0, 120);
+
+  const club = {
+    name: $('club-name-in').value.trim().slice(0, 60) || DEFAULT_CLUB.name,
+    tagline: $('club-tagline-in').value.trim().slice(0, 160) || DEFAULT_CLUB.tagline,
+    points: [0, 1, 2].map(i => $('club-pt-' + i).value.trim().slice(0, 120)).filter(Boolean)
+  };
 
   const pricing = {};
   for (const k of ['premium','executive','classic']) {
@@ -831,7 +1008,7 @@ $('settings-save').addEventListener('click', async () => {
   }
 
   try {
-    await update(ref(db, 'settings'), { event, pricing, bookingOpensAt });
+    await update(ref(db, 'settings'), { event, club, pricing, bookingOpensAt });
     toast(bookingOpensAt ? 'Saved — booking is scheduled.' : 'Settings saved.');
   } catch (e) { dbErr(e); }
 });

@@ -223,7 +223,35 @@
           <p class="text-[10px] text-white/60 uppercase tracking-wide font-semibold">Show</p>
           <p id="ev-time" class="text-[13px] font-bold">TBA</p>
         </div>
+        <div class="bg-white/10 rounded-md px-3 py-1.5 text-center">
+          <p class="text-[10px] text-white/60 uppercase tracking-wide font-semibold">Gate</p>
+          <p id="ev-gate" class="text-[13px] font-bold">TBA</p>
+        </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Gate timing notice: latecomers genuinely miss entry, so this stays visible
+       rather than tucked into the strip above. -->
+  <div class="bg-[var(--amber-soft)] border-b border-[#f0dfae]">
+    <div class="max-w-6xl mx-auto px-4 py-1.5 text-[11.5px] text-[#8a6a12] font-semibold text-center">
+      ⏰ Gates open <span id="ev-gate-open">9:30 PM</span> and close <span id="ev-gate-close">9:50 PM</span> — be on time.
+    </div>
+  </div>
+
+  <!-- Club intro -->
+  <div class="text-white" style="background:linear-gradient(100deg,var(--navy) 0%,#3a2d55 60%,var(--pink) 145%)">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0">
+          <svg class="w-[18px] h-[18px] text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h16M4 8a2 2 0 00-2 2v8a2 2 0 002 2h16a2 2 0 002-2v-8a2 2 0 00-2-2M4 8l2-4h12l2 4M9 8v12m6-12v12"/></svg>
+        </div>
+        <div>
+          <p id="club-name" class="text-[13.5px] font-black leading-none">APC Club</p>
+          <p id="club-tagline" class="text-[11px] text-white/70 mt-1">Presented by the APC Club</p>
+        </div>
+      </div>
+      <div id="club-points" class="flex flex-wrap gap-2"></div>
     </div>
   </div>
 
@@ -509,7 +537,9 @@ const CLOUDINARY_PRESET = "movie_tickets";
 const MAX_SEATS = 4;
 const HOLD_MS   = 5 * 60 * 1000;
 const SEATS_PER_ROW = 30;
-const ROW_BLOCKS = [10, 10, 10];
+// Aisles fall after seat 4 and after seat 15 in every row, so the blocks are
+// 1-4, 5-15, 16-30.
+const ROW_BLOCKS = [4, 11, 15];
 
 // BookMyShow-style tiers. Rows farthest from the screen are the premium block.
 const TIERS = [
@@ -519,7 +549,14 @@ const TIERS = [
 ];
 // Entry is free by default; organisers can set per-tier prices from the admin panel.
 const DEFAULT_PRICING = { premium: 0, executive: 0, classic: 0 };
-const DEFAULT_EVENT = { title: 'Dhurandhar', language: 'Hindi', format: '2D', venue: 'NIFT Auditorium', date: 'TBA', time: 'TBA' };
+const DEFAULT_EVENT = {
+  title: 'Shershaah', language: 'Hindi', format: '2D', venue: 'NIFT Auditorium',
+  date: 'TBA', time: '10:00 PM', gateOpen: '9:30 PM', gateClose: '9:50 PM'
+};
+const DEFAULT_CLUB = {
+  name: 'APC Club', tagline: 'Presented by the APC Club',
+  points: ['Student-run, student-picked screenings', 'Free entry for every NIFT student', 'One night, one screen, one big room']
+};
 
 /* Ticket artwork. Each student is assigned one of these deterministically, so
    their ticket always looks the same to them but the batch isn't uniform.
@@ -545,6 +582,7 @@ let user = null;
 let seats = {};                 // live movieSeats
 let myBookings = {};            // live bookings/<uid>
 let pricing = { ...DEFAULT_PRICING };
+let club = { ...DEFAULT_CLUB };
 let bookingOpen = true;
 let opensAt = 0;                // epoch ms; booking is browse-only before this
 let countdownTimer = null;
@@ -760,6 +798,7 @@ onAuthStateChanged(auth, u => {
 onValue(ref(db, 'settings'), snap => {
   const s = snap.val() || {};
   pricing = { ...DEFAULT_PRICING, ...(s.pricing || {}) };
+  club = { ...DEFAULT_CLUB, ...(s.club || {}), points: (s.club && s.club.points) || DEFAULT_CLUB.points };
   const ev = { ...DEFAULT_EVENT, ...(s.event || {}) };
   $('ev-title').textContent  = ev.title;
   $('ev-lang').textContent   = ev.language;
@@ -767,7 +806,11 @@ onValue(ref(db, 'settings'), snap => {
   $('ev-venue').textContent  = ev.venue;
   $('ev-date').textContent   = ev.date;
   $('ev-time').textContent   = ev.time;
+  $('ev-gate').textContent   = `${ev.gateOpen}–${ev.gateClose}`;
+  $('ev-gate-open').textContent  = ev.gateOpen;
+  $('ev-gate-close').textContent = ev.gateClose;
   document.title = ev.title + ' — Book Tickets';
+  renderClubIntro();
 
   bookingOpen = s.bookingStatus !== 'closed';
   opensAt = Number(s.bookingOpensAt || 0);
@@ -780,6 +823,17 @@ onValue(ref(db, 'settings'), snap => {
   renderMap();
   updateBar();
 });
+
+function renderClubIntro() {
+  $('club-name').textContent = club.name;
+  $('club-tagline').textContent = club.tagline;
+  const box = $('club-points');
+  box.innerHTML = (club.points || []).map(pt => `
+    <span class="flex items-center gap-1.5 bg-white/12 rounded-full pl-2 pr-3 py-1 text-[11px] font-semibold">
+      <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+      ${esc(pt)}
+    </span>`).join('');
+}
 
 function refreshCountdown() {
   const soon = bookingOpen && beforeOpen();
@@ -1443,8 +1497,16 @@ function ticketMarkup({ id, b, shown, when, badge, free }) {
             <p class="text-[9px] uppercase tracking-wide text-white/50 font-bold">Show</p>
             <p class="text-[12px] font-semibold text-white">${esc($('ev-time').textContent)}</p>
           </div>
+          <div>
+            <p class="text-[9px] uppercase tracking-wide text-white/50 font-bold">Gate</p>
+            <p class="text-[12px] font-semibold text-white">${esc($('ev-gate-open').textContent)}–${esc($('ev-gate-close').textContent)}</p>
+          </div>
         </div>
       </div>
+    </div>
+
+    <div class="px-5 py-1.5 bg-[var(--amber-soft)] border-b border-[#f0dfae] text-[10.5px] text-[#8a6a12] font-semibold text-center">
+      Gates close at ${esc($('ev-gate-close').textContent)} — arrive on time.
     </div>
 
     <div class="p-5 flex gap-5 items-center bg-white">

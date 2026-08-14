@@ -166,6 +166,9 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
+// Bootstrap organiser — also has gate access without a roles/ entry.
+const OWNER_UID = 'kGmSLYoXlUgrdAfKogkfzmPWrrL2';
+
 let seats = {}, bookings = {}, tickets = [];
 let scanner = null, currentId = null, bound = false;
 
@@ -218,7 +221,7 @@ onAuthStateChanged(auth, async user => {
     rulesMissing = /permission/i.test(e.message || '');
   }
 
-  if (role !== 'staff' && role !== 'admin') {
+  if (rulesMissing || (role !== 'staff' && role !== 'admin' && user.uid !== OWNER_UID)) {
     $('denied-uid').textContent = user.uid;
     $('denied-setup').classList.toggle('hidden', !rulesMissing);
     $('denied-title').textContent = rulesMissing ? 'Setup not finished' : 'No gate access';

@@ -11,7 +11,7 @@
 
     "settings": {
       ".read": true,
-      ".write": "auth != null && root.child('roles').child(auth.uid).val() === 'admin'",
+      ".write": "auth != null && (auth.uid === 'kGmSLYoXlUgrdAfKogkfzmPWrrL2' || root.child('roles').child(auth.uid).val() === 'admin')",
       "bookingStatus": {
         ".validate": "newData.isString() && (newData.val() === 'open' || newData.val() === 'closed')"
       },
@@ -28,12 +28,19 @@
           ".validate": "newData.isString() && newData.val().length <= 120"
         }
       },
+      "club": {
+        "name":    { ".validate": "newData.isString() && newData.val().length <= 60" },
+        "tagline": { ".validate": "newData.isString() && newData.val().length <= 160" },
+        "points": {
+          "$i": { ".validate": "newData.isString() && newData.val().length <= 120" }
+        }
+      },
       "$other": { ".validate": false }
     },
 
     "promoCodes": {
-      ".read": "auth != null && root.child('roles').child(auth.uid).val() === 'admin'",
-      ".write": "auth != null && root.child('roles').child(auth.uid).val() === 'admin'",
+      ".read": "auth != null && (auth.uid === 'kGmSLYoXlUgrdAfKogkfzmPWrrL2' || root.child('roles').child(auth.uid).val() === 'admin')",
+      ".write": "auth != null && (auth.uid === 'kGmSLYoXlUgrdAfKogkfzmPWrrL2' || root.child('roles').child(auth.uid).val() === 'admin')",
 
       "$code": {
         ".read": true,
@@ -46,7 +53,7 @@
         },
         "used": {
           ".write": "auth != null",
-          ".validate": "newData.isNumber() && newData.val() >= 0 && (root.child('roles').child(auth.uid).val() === 'admin' || (((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1)) && (!root.child('promoCodes').child($code).child('limit').exists() || newData.val() <= root.child('promoCodes').child($code).child('limit').val())))"
+          ".validate": "newData.isNumber() && newData.val() >= 0 && ((auth.uid === 'kGmSLYoXlUgrdAfKogkfzmPWrrL2' || root.child('roles').child(auth.uid).val() === 'admin') || (((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1)) && (!root.child('promoCodes').child($code).child('limit').exists() || newData.val() <= root.child('promoCodes').child($code).child('limit').val())))"
         },
         "$other": { ".validate": false }
       }
@@ -56,15 +63,15 @@
       ".read": true,
 
       "$seatId": {
-        ".write": "auth != null && ( root.child('roles').child(auth.uid).val() === 'admin' || ( (!root.child('settings').child('bookingOpensAt').exists() || now >= root.child('settings').child('bookingOpensAt').val()) && root.child('settings').child('bookingStatus').val() !== 'closed' && ( (!data.exists() && newData.child('userId').val() === auth.uid) || (data.exists() && data.child('userId').val() === auth.uid && data.child('status').val() === 'held') || (data.exists() && data.child('status').val() === 'held' && data.child('expiresAt').val() < now) ) ) )",
+        ".write": "auth != null && ( (auth.uid === 'kGmSLYoXlUgrdAfKogkfzmPWrrL2' || root.child('roles').child(auth.uid).val() === 'admin') || ( (!root.child('settings').child('bookingOpensAt').exists() || now >= root.child('settings').child('bookingOpensAt').val()) && root.child('settings').child('bookingStatus').val() !== 'closed' && ( (!data.exists() && newData.child('userId').val() === auth.uid) || (data.exists() && data.child('userId').val() === auth.uid && data.child('status').val() === 'held') || (data.exists() && data.child('status').val() === 'held' && data.child('expiresAt').val() < now) ) ) )",
 
         ".validate": "newData.hasChildren(['status'])",
 
         "status": {
-          ".validate": "newData.isString() && ( newData.val() === 'held' || newData.val() === 'occupied' || (newData.val() === 'blocked' && root.child('roles').child(auth.uid).val() === 'admin') )"
+          ".validate": "newData.isString() && ( newData.val() === 'held' || newData.val() === 'occupied' || (newData.val() === 'blocked' && (auth.uid === 'kGmSLYoXlUgrdAfKogkfzmPWrrL2' || root.child('roles').child(auth.uid).val() === 'admin')) )"
         },
         "userId": {
-          ".validate": "newData.isString() && (newData.val() === auth.uid || root.child('roles').child(auth.uid).val() === 'admin')"
+          ".validate": "newData.isString() && (newData.val() === auth.uid || (auth.uid === 'kGmSLYoXlUgrdAfKogkfzmPWrrL2' || root.child('roles').child(auth.uid).val() === 'admin'))"
         },
         "ticketId": {
           ".validate": "newData.isString() && newData.val().length <= 40"
@@ -73,15 +80,15 @@
           ".validate": "newData.isNumber()"
         },
         "blockedAt": {
-          ".validate": "newData.isNumber() && root.child('roles').child(auth.uid).val() === 'admin'"
+          ".validate": "newData.isNumber() && (auth.uid === 'kGmSLYoXlUgrdAfKogkfzmPWrrL2' || root.child('roles').child(auth.uid).val() === 'admin')"
         },
         "verificationStatus": {
-          ".write": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'staff')",
-          ".validate": "newData.isString() && ( newData.val() === 'pending' || ((newData.val() === 'approved' || newData.val() === 'rejected') && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'staff')) )"
+          ".write": "auth != null && ((auth.uid === 'kGmSLYoXlUgrdAfKogkfzmPWrrL2' || root.child('roles').child(auth.uid).val() === 'admin') || root.child('roles').child(auth.uid).val() === 'staff')",
+          ".validate": "newData.isString() && ( newData.val() === 'pending' || ((newData.val() === 'approved' || newData.val() === 'rejected') && ((auth.uid === 'kGmSLYoXlUgrdAfKogkfzmPWrrL2' || root.child('roles').child(auth.uid).val() === 'admin') || root.child('roles').child(auth.uid).val() === 'staff')) )"
         },
         "checkedIn": {
-          ".write": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'staff')",
-          ".validate": "newData.isBoolean() && ( newData.val() === false || root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'staff' )"
+          ".write": "auth != null && ((auth.uid === 'kGmSLYoXlUgrdAfKogkfzmPWrrL2' || root.child('roles').child(auth.uid).val() === 'admin') || root.child('roles').child(auth.uid).val() === 'staff')",
+          ".validate": "newData.isBoolean() && ( newData.val() === false || (auth.uid === 'kGmSLYoXlUgrdAfKogkfzmPWrrL2' || root.child('roles').child(auth.uid).val() === 'admin') || root.child('roles').child(auth.uid).val() === 'staff' )"
         },
 
         "$other": { ".validate": false }
@@ -89,14 +96,14 @@
     },
 
     "bookings": {
-      ".read": "auth != null && (root.child('roles').child(auth.uid).val() === 'admin' || root.child('roles').child(auth.uid).val() === 'staff')",
+      ".read": "auth != null && ((auth.uid === 'kGmSLYoXlUgrdAfKogkfzmPWrrL2' || root.child('roles').child(auth.uid).val() === 'admin') || root.child('roles').child(auth.uid).val() === 'staff')",
 
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && (auth.uid === $uid || root.child('roles').child(auth.uid).val() === 'admin')",
+        ".write": "auth != null && (auth.uid === $uid || (auth.uid === 'kGmSLYoXlUgrdAfKogkfzmPWrrL2' || root.child('roles').child(auth.uid).val() === 'admin'))",
 
         "$ticketId": {
-          ".write": "auth != null && ((auth.uid === $uid && !data.exists()) || root.child('roles').child(auth.uid).val() === 'admin')",
+          ".write": "auth != null && ((auth.uid === $uid && !data.exists()) || (auth.uid === 'kGmSLYoXlUgrdAfKogkfzmPWrrL2' || root.child('roles').child(auth.uid).val() === 'admin'))",
           ".validate": "!newData.exists() || newData.hasChildren(['ticketId', 'userId', 'bookerName', 'seats', 'paidAmount', 'createdAt'])",
 
           "ticketId":       { ".validate": "newData.isString() && newData.val() === $ticketId" },
