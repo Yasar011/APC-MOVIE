@@ -79,8 +79,20 @@
     <div class="w-12 h-12 rounded-full bg-[#fff0f3] flex items-center justify-center mx-auto mb-4">
       <svg class="w-6 h-6 text-[var(--pink)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
     </div>
-    <h1 class="text-[19px] font-bold text-[var(--navy)] mb-1">Not an organiser account</h1>
-    <p class="text-[13px] text-[var(--muted)] mb-5">This account is signed in but has no admin role, so the dashboard stays locked.</p>
+    <h1 id="denied-title" class="text-[19px] font-bold text-[var(--navy)] mb-1">Not an organiser account</h1>
+    <p id="denied-sub" class="text-[13px] text-[var(--muted)] mb-5">This account is signed in but has no admin role, so the dashboard stays locked.</p>
+
+    <!-- Shown when the database rules have not been published yet: the app cannot
+         even read roles/, so this is a setup problem, not an account problem. -->
+    <div id="denied-setup" class="hidden bg-[#fff8e6] border border-[#f0dfae] rounded-lg p-4 mb-5 text-left">
+      <p class="text-[12px] font-bold text-[#8a6a12] mb-2">The database rules have not been published.</p>
+      <ol class="list-decimal pl-4 text-[11.5px] text-[#8a6a12] space-y-1.5 leading-snug">
+        <li>Open the <a href="https://console.firebase.google.com/" target="_blank" rel="noopener" class="underline font-semibold">Firebase console</a> → your project → <b>Realtime Database</b> → <b>Rules</b>.</li>
+        <li>Replace everything there with the contents of <code class="bg-white border border-[#f0dfae] px-1 rounded">database.rules.json</code> from the repo, then click <b>Publish</b>.</li>
+        <li>Reload this page.</li>
+      </ol>
+    </div>
+
     <div class="bg-[#fafafa] border border-[var(--line)] rounded-lg p-3 mb-5 text-left">
       <p class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold mb-1">Your user ID</p>
       <p id="denied-uid" class="text-[11.5px] font-mono break-all text-[var(--navy)]"></p>
@@ -111,6 +123,7 @@
     <div class="px-4 border-b border-[var(--line)] flex gap-6 overflow-x-auto">
       <button class="tab on" data-tab="bookings">Bookings</button>
       <button class="tab" data-tab="seats">Seats</button>
+      <button class="tab" data-tab="manual">Manual booking</button>
       <button class="tab" data-tab="promos">Promo codes</button>
       <button class="tab" data-tab="settings">Event &amp; pricing</button>
     </div>
@@ -181,6 +194,29 @@
       </div>
     </div>
 
+    <!-- MANUAL BOOKING -->
+    <div id="p-manual" class="pane p-5">
+      <h3 class="text-[14px] font-bold text-[var(--navy)] mb-1">Add a walk-in booking</h3>
+      <p class="text-[12px] text-[var(--muted)] mb-4">
+        For anyone booked outside the app — at the door, over WhatsApp, whatever. Creates the ticket already
+        confirmed, and the seats go occupied on the public map immediately.
+      </p>
+
+      <label class="lbl">Seats</label>
+      <input id="manual-seats" class="fld uppercase mb-1" placeholder="C5, C6, C7">
+      <p id="manual-seats-msg" class="text-[11.5px] mb-3 hidden"></p>
+
+      <div id="manual-names" class="hidden mb-4"></div>
+
+      <div class="grid md:grid-cols-3 gap-3 mb-4">
+        <div><label class="lbl">Phone (optional)</label><input id="manual-phone" class="fld" maxlength="20"></div>
+        <div><label class="lbl">Student ID (optional)</label><input id="manual-sid" class="fld" maxlength="40"></div>
+        <div><label class="lbl">Department (optional)</label><input id="manual-dept" class="fld" maxlength="40"></div>
+      </div>
+
+      <button id="manual-create" class="btn-pink px-6 py-2.5 text-[13px]">Create booking</button>
+    </div>
+
     <!-- PROMOS -->
     <div id="p-promos" class="pane p-5">
       <div class="grid md:grid-cols-3 gap-3 mb-4">
@@ -201,11 +237,52 @@
         <div><label class="lbl">Format</label><input id="ev-format" class="fld"></div>
         <div><label class="lbl">Venue</label><input id="ev-venue" class="fld"></div>
         <div><label class="lbl">Date</label><input id="ev-date" class="fld" placeholder="Sat, 12 Sep"></div>
-        <div><label class="lbl">Show time</label><input id="ev-time" class="fld" placeholder="6:30 PM"></div>
+        <div><label class="lbl">Show time</label><input id="ev-time" class="fld" placeholder="10:00 PM"></div>
+        <div><label class="lbl">Gate opens</label><input id="ev-gateopen" class="fld" placeholder="9:30 PM"></div>
+        <div><label class="lbl">Gate closes</label><input id="ev-gateclose" class="fld" placeholder="9:50 PM"></div>
+      </div>
+      <p class="text-[12px] text-[var(--muted)] mb-5 -mt-3">Shown on the booking page and on every ticket, so students know exactly when the doors shut.</p>
+
+      <label class="lbl">Poster image URL</label>
+      <div class="flex gap-3 items-start mb-1">
+        <input id="ev-poster" class="fld" placeholder="https://example.com/poster.jpg">
+        <img id="ev-poster-preview" class="hidden w-16 h-16 object-cover rounded border border-[var(--line)] flex-shrink-0" alt="Poster preview">
+      </div>
+      <p class="text-[11.5px] text-[var(--muted)] mb-5 leading-snug">
+        Shown behind the header on every student's e-ticket. Leave blank to show a plain placeholder instead of
+        the wrong artwork. A direct image link (ending in .jpg/.png) works best; some hosts block hotlinking.
+      </p>
+
+      <h3 class="text-[14px] font-bold text-[var(--navy)] mb-1">Club intro</h3>
+      <p class="text-[12px] text-[var(--muted)] mb-3">The banner students see above the seat map.</p>
+      <div class="grid md:grid-cols-2 gap-3 mb-3">
+        <div><label class="lbl">Club name</label><input id="club-name-in" class="fld" placeholder="APC Club"></div>
+        <div><label class="lbl">Tagline</label><input id="club-tagline-in" class="fld" placeholder="Presented by the APC Club"></div>
+      </div>
+      <div class="grid md:grid-cols-3 gap-3 mb-5">
+        <div><label class="lbl">Highlight 1</label><input id="club-pt-0" class="fld" maxlength="120"></div>
+        <div><label class="lbl">Highlight 2</label><input id="club-pt-1" class="fld" maxlength="120"></div>
+        <div><label class="lbl">Highlight 3</label><input id="club-pt-2" class="fld" maxlength="120"></div>
       </div>
 
+      <h3 class="text-[14px] font-bold text-[var(--navy)] mb-1">Booking window</h3>
+      <p class="text-[12px] text-[var(--muted)] mb-3">
+        Students can browse the seat map and sign in at any time, but cannot claim a seat until this moment.
+        Enforced by the database rules, so a wrong clock on a phone can't get around it. Leave blank to allow booking immediately.
+      </p>
+      <div class="grid md:grid-cols-3 gap-3 mb-2">
+        <div class="md:col-span-2">
+          <label class="lbl">Booking opens at</label>
+          <input id="ev-opensat" type="datetime-local" class="fld">
+        </div>
+        <div class="flex items-end">
+          <button id="opens-clear" class="btn-ghost w-full px-4 py-2 text-[12.5px]">Clear (open now)</button>
+        </div>
+      </div>
+      <p id="opens-state" class="text-[12px] font-semibold mb-5"></p>
+
       <h3 class="text-[14px] font-bold text-[var(--navy)] mb-1">Seat pricing</h3>
-      <p class="text-[12px] text-[var(--muted)] mb-3">Rows A–B are Premium, C–E Executive, F–H Classic. Students are charged per seat by tier.</p>
+      <p class="text-[12px] text-[var(--muted)] mb-3">Rows A–B are Premium, C–E Executive, F–H Classic. Leave all three at <b>0</b> for a free show — students then skip the payment step entirely.</p>
       <div class="grid md:grid-cols-3 gap-3 mb-5">
         <div><label class="lbl">Premium (A–B) ₹</label><input id="pr-premium" type="number" min="0" class="fld"></div>
         <div><label class="lbl">Executive (C–E) ₹</label><input id="pr-executive" type="number" min="0" class="fld"></div>
@@ -263,10 +340,25 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
+/* Bootstrap organiser. Publishing the rules is enough to get in — no roles/
+   entry needs to exist first. A Firebase UID is not a credential: knowing it
+   grants nothing without that account's password, so it is safe in source.
+   Everyone else is granted access via roles/<uid> in the Firebase console. */
+const OWNER_UID = 'kGmSLYoXlUgrdAfKogkfzmPWrrL2';
+
 const ROWS = ['A','B','C','D','E','F','G','H'];
 const SEATS_PER_ROW = 30;
-const DEFAULT_PRICING = { premium: 25, executive: 25, classic: 25 };
-const DEFAULT_EVENT = { title: 'NIFT Movie Night', language: 'Hindi', format: '2D', venue: 'NIFT Auditorium', date: 'TBA', time: 'TBA' };
+const DEFAULT_PRICING = { premium: 0, executive: 0, classic: 0 };
+const DEFAULT_EVENT = {
+  title: 'Shershaah', language: 'Hindi', format: '2D', venue: 'NIFT Auditorium',
+  date: 'Sat, 15 Aug', time: '10:00 PM', gateOpen: '9:30 PM', gateClose: '9:50 PM', posterUrl: ''
+};
+const DEFAULT_CLUB = {
+  name: 'APC Club', tagline: 'Presented by the APC Club',
+  points: ['Student-run, student-picked screenings', 'Free entry for every NIFT student', 'One night, one screen, one big room']
+};
+const money = n => n > 0 ? '₹' + n : 'Free';
+const WALKIN_UID = 'walkin';   // fixed namespace for bookings entered by an organiser
 
 let me = null;
 let seats = {};
@@ -274,6 +366,7 @@ let bookings = {};        // uid -> ticketId -> record
 let promos = {};
 let tickets = [];         // joined view
 let bound = false;
+let opensAt = 0;
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
@@ -318,13 +411,26 @@ onAuthStateChanged(auth, async user => {
     return;
   }
 
-  let role = null;
-  try { role = (await get(ref(db, `roles/${user.uid}`))).val(); }
-  catch (e) { console.warn('role lookup:', e.message); }
+  let role = null, rulesMissing = false;
+  try {
+    role = (await get(ref(db, `roles/${user.uid}`))).val();
+  } catch (e) {
+    console.warn('role lookup:', e.message);
+    // Being denied on roles/ means the rules aren't live yet — a deploy problem,
+    // not "this person isn't an admin". Say which one it actually is.
+    rulesMissing = /permission/i.test(e.message || '');
+  }
 
-  if (role !== 'admin') {
+  // A permission error on roles/ means nothing will work yet, so the setup
+  // screen wins even for the owner.
+  if (rulesMissing || (role !== 'admin' && user.uid !== OWNER_UID)) {
     me = null;
     $('denied-uid').textContent = user.uid;
+    $('denied-setup').classList.toggle('hidden', !rulesMissing);
+    $('denied-title').textContent = rulesMissing ? 'Setup not finished' : 'Not an organiser account';
+    $('denied-sub').textContent = rulesMissing
+      ? "The app can't read the roles list, so it can't tell who the organisers are."
+      : 'This account is signed in but has no admin role, so the dashboard stays locked.';
     show('denied');
     $('hdr-user').classList.add('hidden'); $('hdr-user').classList.remove('flex');
     return;
@@ -361,9 +467,58 @@ function bindData() {
 
     const ev = { ...DEFAULT_EVENT, ...(v.event || {}) };
     ['title','language','format','venue','date','time'].forEach(k => { $('ev-' + k).value = ev[k]; });
+    $('ev-gateopen').value  = ev.gateOpen;
+    $('ev-gateclose').value = ev.gateClose;
+    $('ev-poster').value = ev.posterUrl || '';
+    updatePosterPreview();
+
+    const cl = { ...DEFAULT_CLUB, ...(v.club || {}) };
+    const pts = (v.club && v.club.points) || DEFAULT_CLUB.points;
+    $('club-name-in').value = cl.name;
+    $('club-tagline-in').value = cl.tagline;
+    [0, 1, 2].forEach(i => { $('club-pt-' + i).value = pts[i] || ''; });
+
     const pr = { ...DEFAULT_PRICING, ...(v.pricing || {}) };
     ['premium','executive','classic'].forEach(k => { $('pr-' + k).value = pr[k]; });
+
+    opensAt = Number(v.bookingOpensAt || 0);
+    $('ev-opensat').value = opensAt ? toLocalInput(opensAt) : '';
+    paintOpensState();
   }, dbErr);
+}
+
+function updatePosterPreview() {
+  const url = $('ev-poster').value.trim();
+  const img = $('ev-poster-preview');
+  if (!url) { img.classList.add('hidden'); img.src = ''; return; }
+  img.src = url;
+  img.classList.remove('hidden');
+}
+$('ev-poster').addEventListener('input', updatePosterPreview);
+// A dead link shouldn't sit there looking like it worked.
+$('ev-poster-preview').addEventListener('error', () => $('ev-poster-preview').classList.add('hidden'));
+
+/* <input type="datetime-local"> speaks local wall-clock time with no zone, so
+   convert both ways through the local offset rather than via toISOString. */
+function toLocalInput(ms) {
+  const d = new Date(ms - new Date(ms).getTimezoneOffset() * 60000);
+  return d.toISOString().slice(0, 16);
+}
+function paintOpensState() {
+  const el = $('opens-state');
+  if (!opensAt) {
+    el.textContent = 'No scheduled opening — students can book as soon as bookings are set to OPEN.';
+    el.style.color = 'var(--muted)';
+    return;
+  }
+  const when = new Date(opensAt).toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'short' });
+  if (Date.now() < opensAt) {
+    el.textContent = `Booking is locked until ${when}.`;
+    el.style.color = 'var(--amber)';
+  } else {
+    el.textContent = `Booking opened on ${when}.`;
+    el.style.color = 'var(--green)';
+  }
 }
 
 /* Join seat rows with their booking record (falling back to legacy inline data). */
@@ -428,6 +583,8 @@ function renderStats() {
   $('s-revenue').textContent = '₹' + tickets
     .filter(t => t.verificationStatus === 'approved' || t.checkedIn)
     .reduce((n, t) => n + t.paidAmount, 0);
+  // Free bookings need no payment check, so they never sit in "awaiting".
+  $('s-pending').textContent = tickets.filter(t => t.verificationStatus === 'pending' && t.paidAmount > 0).length;
 }
 
 /* ────────── Bookings table ────────── */
@@ -441,7 +598,8 @@ function renderTable() {
 
   let rows = tickets.filter(t => {
     if (filter === 'checkedin' && !t.checkedIn) return false;
-    if (filter !== 'all' && filter !== 'checkedin' && t.verificationStatus !== filter) return false;
+    if (filter === 'pending' && (t.verificationStatus !== 'pending' || t.paidAmount === 0)) return false;
+    if (filter !== 'all' && filter !== 'checkedin' && filter !== 'pending' && t.verificationStatus !== filter) return false;
     if (!term) return true;
     return [t.ticketId, t.bookerName, t.email, t.phone, t.whatsapp, t.studentId, t.utr, t.seats.join(' '), (t.guestNames || []).join(' ')]
       .join(' ').toLowerCase().includes(term);
@@ -454,10 +612,12 @@ function renderTable() {
 
   rows.forEach(t => {
     const when = t.createdAt ? new Date(t.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+    const free = t.paidAmount === 0;
     const badge = t.checkedIn
       ? ['Checked in', 'background:#eaf0ff;color:#2d5bd7']
       : t.verificationStatus === 'approved' ? ['Verified', 'background:var(--green-soft);color:var(--green)']
       : t.verificationStatus === 'rejected' ? ['Rejected', 'background:#ffeaee;color:var(--pink)']
+      : free ? ['Confirmed', 'background:var(--green-soft);color:var(--green)']
       : ['Awaiting check', 'background:var(--amber-soft);color:var(--amber)'];
 
     const tr = document.createElement('tr');
@@ -481,8 +641,8 @@ function renderTable() {
         <div class="text-[11px] text-[var(--muted)]">${t.seats.length} seat${t.seats.length > 1 ? 's' : ''}</div>
       </td>
       <td>
-        <div class="font-bold text-[var(--navy)]">₹${t.paidAmount}</div>
-        <div class="text-[11px] text-[var(--muted)] font-mono">${esc(t.utr || '—')}</div>
+        <div class="font-bold text-[var(--navy)]">${money(t.paidAmount)}</div>
+        ${free ? '' : `<div class="text-[11px] text-[var(--muted)] font-mono">${esc(t.utr || '—')}</div>`}
         ${t.promoCode && t.promoCode !== 'None' ? `<div class="chip mt-1" style="background:#f3ecff;color:#7040c0">${esc(t.promoCode)}</div>` : ''}
       </td>
       <td><span class="chip" style="${badge[1]}">${badge[0]}</span></td>
@@ -499,8 +659,8 @@ function renderTable() {
     };
 
     if (t.screenshotUrl) add('View proof', '', () => viewShot(t));
-    if (!t.checkedIn && t.verificationStatus !== 'approved') add('Verify payment', 'color:var(--green);border-color:#bfe6c8', () => setStatus(t, 'verificationStatus', 'approved'));
-    if (!t.checkedIn && t.verificationStatus === 'approved') add('Mark checked in', 'color:#2d5bd7;border-color:#c3d2f5', () => setStatus(t, 'checkedIn', true));
+    if (!free && !t.checkedIn && t.verificationStatus !== 'approved') add('Verify payment', 'color:var(--green);border-color:#bfe6c8', () => setStatus(t, 'verificationStatus', 'approved'));
+    if (!t.checkedIn && (free || t.verificationStatus === 'approved')) add('Mark checked in', 'color:#2d5bd7;border-color:#c3d2f5', () => setStatus(t, 'checkedIn', true));
     if (t.checkedIn) add('Undo check-in', '', () => setStatus(t, 'checkedIn', false));
     add('Edit seats', '', () => openSeats(t));
     add('Cancel booking', 'color:var(--pink);border-color:#ffd0da', () => cancelTicket(t));
@@ -590,6 +750,111 @@ $('unblock-btn').addEventListener('click', async () => {
   if (!Object.keys(patch).length) return toast('No blocked seats in that selection.', 'err');
   try { await update(ref(db), patch); toast(`${Object.keys(patch).length} seat(s) unblocked.`); $('block-target').value = ''; }
   catch (e) { dbErr(e); }
+});
+
+/* ────────── Manual (walk-in) booking ────────── */
+const SEAT_ID_RE = /^[A-H](?:[1-9]|[12]\d|30)$/;
+
+function parseSeatList(raw) {
+  return raw.trim().toUpperCase().split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function manualSeatState() {
+  const list = parseSeatList($('manual-seats').value);
+  const bad = list.filter(s => !SEAT_ID_RE.test(s));
+  const taken = list.filter(s => !bad.includes(s) && seats[s] &&
+    (seats[s].status === 'occupied' || seats[s].status === 'blocked' ||
+     (seats[s].status === 'held' && (seats[s].expiresAt || 0) > Date.now())));
+  return { list, bad, taken, ok: list.length > 0 && !bad.length && !taken.length };
+}
+
+function renderManualState() {
+  const { list, bad, taken, ok } = manualSeatState();
+  const msg = $('manual-seats-msg');
+
+  if (!list.length) {
+    msg.classList.add('hidden');
+  } else if (bad.length) {
+    msg.textContent = `Not a valid seat id: ${bad.join(', ')}`;
+    msg.className = 'text-[11.5px] mb-3 text-[var(--pink)] font-semibold';
+    msg.classList.remove('hidden');
+  } else if (taken.length) {
+    msg.textContent = `Already taken: ${taken.join(', ')}`;
+    msg.className = 'text-[11.5px] mb-3 text-[var(--pink)] font-semibold';
+    msg.classList.remove('hidden');
+  } else {
+    msg.textContent = `${list.length} seat${list.length > 1 ? 's' : ''} free and ready to book.`;
+    msg.className = 'text-[11.5px] mb-3 text-[var(--green)] font-semibold';
+    msg.classList.remove('hidden');
+  }
+
+  const box = $('manual-names');
+  if (!ok) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+  box.classList.remove('hidden');
+  const sorted = [...list].sort((a, b) => a[0] === b[0] ? +a.slice(1) - +b.slice(1) : a[0].localeCompare(b[0]));
+  box.innerHTML = `<label class="lbl">Name for each seat</label>
+    <div class="space-y-2">${sorted.map(s =>
+      `<div class="flex gap-2 items-center">
+         <span class="text-[11px] font-mono font-bold text-[var(--navy)] w-9 flex-shrink-0">${esc(s)}</span>
+         <input type="text" class="fld manual-name" data-seat="${esc(s)}" maxlength="80" placeholder="Full name">
+       </div>`).join('')}</div>`;
+}
+
+$('manual-seats').addEventListener('input', renderManualState);
+
+$('manual-create').addEventListener('click', async () => {
+  const { list, ok } = manualSeatState();
+  if (!ok) return toast('Fix the seat list above first.', 'err');
+
+  const nameInputs = [...document.querySelectorAll('.manual-name')];
+  const seatList = nameInputs.map(i => i.dataset.seat);
+  const names = nameInputs.map(i => i.value.trim());
+  const missing = names.some(n => n.length < 2);
+  if (missing) return toast('Enter a name (2+ characters) for every seat.', 'err');
+
+  const btn = $('manual-create');
+  btn.disabled = true; btn.textContent = 'Creating…';
+
+  try {
+    // Re-check right before writing — someone else may have taken a seat while
+    // this form was open.
+    const stillTaken = seatList.filter(s =>
+      seats[s] && (seats[s].status === 'occupied' || seats[s].status === 'blocked' ||
+        (seats[s].status === 'held' && (seats[s].expiresAt || 0) > Date.now())));
+    if (stillTaken.length) throw new Error(`Just taken: ${stillTaken.join(', ')}. Remove them and try again.`);
+
+    const ticketId = `NIFT-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 4096).toString(36).toUpperCase().padStart(3, '0')}`;
+    const record = {
+      ticketId, userId: WALKIN_UID,
+      bookerName: names[0], guestNames: names.slice(1),
+      paidAmount: 0, promoCode: 'None',
+      seats: seatList, createdAt: new Date().toISOString()
+    };
+    const phone = $('manual-phone').value.trim();
+    const sid = $('manual-sid').value.trim();
+    const dept = $('manual-dept').value.trim();
+    if (phone) record.phone = phone;
+    if (sid) record.studentId = sid;
+    if (dept) record.department = dept;
+
+    const patch = { [`bookings/${WALKIN_UID}/${ticketId}`]: record };
+    seatList.forEach(id => {
+      // 'pending' here matches the student free-booking path — paidAmount is 0,
+      // so the badge and gate logic already treat it as good to go without a
+      // separate "Verified" state that would imply there was something to check.
+      patch[`movieSeats/${id}`] = { status: 'occupied', userId: WALKIN_UID, ticketId, verificationStatus: 'pending', checkedIn: false };
+    });
+    await update(ref(db), patch);
+
+    toast(`Booking ${ticketId} created for ${seatList.join(', ')}.`);
+    $('manual-seats').value = ''; $('manual-phone').value = ''; $('manual-sid').value = ''; $('manual-dept').value = '';
+    renderManualState();
+  } catch (e) {
+    if (e.message?.startsWith('Just taken')) toast(e.message, 'err');
+    else dbErr(e);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Create booking';
+  }
 });
 
 function staleHolds() {
@@ -741,6 +1006,15 @@ function renderPromos() {
 $('settings-save').addEventListener('click', async () => {
   const event = {};
   ['title','language','format','venue','date','time'].forEach(k => { event[k] = $('ev-' + k).value.trim().slice(0, 120); });
+  event.gateOpen  = $('ev-gateopen').value.trim().slice(0, 120);
+  event.gateClose = $('ev-gateclose').value.trim().slice(0, 120);
+  event.posterUrl = $('ev-poster').value.trim().slice(0, 500);
+
+  const club = {
+    name: $('club-name-in').value.trim().slice(0, 60) || DEFAULT_CLUB.name,
+    tagline: $('club-tagline-in').value.trim().slice(0, 160) || DEFAULT_CLUB.tagline,
+    points: [0, 1, 2].map(i => $('club-pt-' + i).value.trim().slice(0, 120)).filter(Boolean)
+  };
 
   const pricing = {};
   for (const k of ['premium','executive','classic']) {
@@ -749,10 +1023,24 @@ $('settings-save').addEventListener('click', async () => {
     pricing[k] = v;
   }
 
+  const raw = $('ev-opensat').value;
+  let bookingOpensAt = 0;
+  if (raw) {
+    const ms = new Date(raw).getTime();       // parsed in the browser's local zone
+    if (!Number.isFinite(ms)) return toast('Enter a valid opening date and time.', 'err');
+    bookingOpensAt = ms;
+  }
+
   try {
-    await update(ref(db, 'settings'), { event, pricing });
-    toast('Settings saved.');
+    await update(ref(db, 'settings'), { event, club, pricing, bookingOpensAt });
+    toast(bookingOpensAt ? 'Saved — booking is scheduled.' : 'Settings saved.');
   } catch (e) { dbErr(e); }
+});
+
+$('opens-clear').addEventListener('click', async () => {
+  if (!confirm('Remove the scheduled opening time?\n\nStudents will be able to book straight away.')) return;
+  try { await set(ref(db, 'settings/bookingOpensAt'), 0); toast('Scheduled opening cleared.'); }
+  catch (e) { dbErr(e); }
 });
 
 /* ────────── CSV export ────────── */

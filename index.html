@@ -54,7 +54,11 @@
     .rlbl{width:16px;text-align:center;font-size:11px;font-weight:700;color:#9a9a9a;flex-shrink:0}
     .srow .rlbl:first-child{position:sticky;left:0;z-index:2;background:var(--bg)}
     .sblocks{display:flex;align-items:center}
-    .sgap{width:26px;flex-shrink:0}
+    /* An aisle needs to read as clearly different from ordinary seat spacing at
+       a glance, not just be a few px wider — so it gets its own width plus a
+       faint centre line rather than relying on spacing alone. */
+    .sgap{width:38px;flex-shrink:0;position:relative}
+    .sgap:before{content:"";position:absolute;left:50%;top:1px;bottom:1px;width:1px;background:#d5d5d5;transform:translateX(-50%)}
 
     .seat{
       width:24px;height:24px;margin:0 3px;border-radius:4px;flex-shrink:0;
@@ -96,6 +100,17 @@
 
     /* ---------- Ticket card ---------- */
     .tkt{background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08);border:1px solid var(--line)}
+    /* Poster art sits behind the ticket header, darkened so text stays legible
+       whatever the artwork looks like. */
+    .tkt-hero{position:relative;background-color:var(--navy);background-size:cover;background-position:center 22%}
+    .tkt-hero:before{content:"";position:absolute;inset:0;
+      background:linear-gradient(100deg,rgba(20,24,34,.95) 0%,rgba(20,24,34,.82) 42%,rgba(20,24,34,.45) 100%)}
+    /* No poster set yet — a deliberate gradient + watermark reads as "not
+       uploaded yet", not as a broken image. */
+    .tkt-hero-placeholder{background-image:linear-gradient(115deg,var(--navy) 0%,#3a2d55 55%,var(--pink) 150%)}
+    .tkt-hero-placeholder:before{display:none}
+    .tkt-hero-placeholder .tkt-hero-mark{position:absolute;right:14px;bottom:10px;width:64px;height:64px;opacity:.16;z-index:0}
+    .tkt-hero-in{position:relative;z-index:1}
     .tkt-perf{border-top:2px dashed #dcdcdc;position:relative}
     .tkt-perf:before,.tkt-perf:after{content:"";position:absolute;top:-11px;width:20px;height:20px;border-radius:50%;background:var(--bg)}
     .tkt-perf:before{left:-11px}
@@ -217,7 +232,35 @@
           <p class="text-[10px] text-white/60 uppercase tracking-wide font-semibold">Show</p>
           <p id="ev-time" class="text-[13px] font-bold">TBA</p>
         </div>
+        <div class="bg-white/10 rounded-md px-3 py-1.5 text-center">
+          <p class="text-[10px] text-white/60 uppercase tracking-wide font-semibold">Gate</p>
+          <p id="ev-gate" class="text-[13px] font-bold">TBA</p>
+        </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Gate timing notice: latecomers genuinely miss entry, so this stays visible
+       rather than tucked into the strip above. -->
+  <div class="bg-[var(--amber-soft)] border-b border-[#f0dfae]">
+    <div class="max-w-6xl mx-auto px-4 py-1.5 text-[11.5px] text-[#8a6a12] font-semibold text-center">
+      ⏰ Gates open <span id="ev-gate-open">9:30 PM</span> and close <span id="ev-gate-close">9:50 PM</span> — be on time.
+    </div>
+  </div>
+
+  <!-- Club intro -->
+  <div class="text-white" style="background:linear-gradient(100deg,var(--navy) 0%,#3a2d55 60%,var(--pink) 145%)">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0">
+          <svg class="w-[18px] h-[18px] text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h16M4 8a2 2 0 00-2 2v8a2 2 0 002 2h16a2 2 0 002-2v-8a2 2 0 00-2-2M4 8l2-4h12l2 4M9 8v12m6-12v12"/></svg>
+        </div>
+        <div>
+          <p id="club-name" class="text-[13.5px] font-black leading-none">APC Club</p>
+          <p id="club-tagline" class="text-[11px] text-white/70 mt-1">Presented by the APC Club</p>
+        </div>
+      </div>
+      <div id="club-points" class="flex flex-wrap gap-2"></div>
     </div>
   </div>
 
@@ -250,6 +293,23 @@
       <p class="text-[13px] text-[var(--muted)]">Seat selection is currently disabled. Check back later or contact the organisers.</p>
     </div>
 
+    <!-- Not open yet -->
+    <div id="soon-box" class="hidden mx-4 mt-5 bg-white border border-[#f0dfae] rounded-xl px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-[var(--amber-soft)] flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-[var(--amber)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <div>
+          <p class="text-[14px] font-bold text-[var(--navy)]">Booking opens at <span id="soon-time"></span></p>
+          <p class="text-[12px] text-[var(--muted)]">Browse the seat map and sign in now — you can book the moment it opens.</p>
+        </div>
+      </div>
+      <div class="text-right">
+        <p class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold">Opens in</p>
+        <p id="soon-count" class="text-[22px] font-black text-[var(--amber)] leading-none tabular-nums">--:--:--</p>
+      </div>
+    </div>
+
     <!-- Loader -->
     <div id="map-load" class="py-24 text-center">
       <div class="spin mb-3"></div>
@@ -273,7 +333,7 @@
         <p class="text-[11px] text-[var(--muted)] font-semibold uppercase tracking-wide">Seats</p>
         <p id="bar-seats" class="text-[14px] font-bold text-[var(--navy)] truncate">—</p>
       </div>
-      <button id="bar-pay" class="btn-pink px-8 py-3 text-[14px] whitespace-nowrap">Pay ₹0</button>
+      <button id="bar-pay" class="btn-pink px-8 py-3 text-[14px] whitespace-nowrap">Book now</button>
     </div>
   </div>
 </section>
@@ -325,14 +385,14 @@
         </div>
         <div class="text-right">
           <p class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold">Total</p>
-          <p id="co-total-1" class="text-[15px] font-black text-[var(--navy)]">₹0</p>
+          <p id="co-total-1" class="text-[15px] font-black text-[var(--navy)]">Free</p>
         </div>
       </div>
 
       <label class="lbl">Email</label>
       <input id="f-email" type="email" class="fld mb-4" readonly>
 
-      <label class="lbl">Full name (main booker)</label>
+      <label class="lbl" id="f-name-label">Your full name</label>
       <input id="f-name" type="text" class="fld mb-4" placeholder="As printed on your NIFT ID" maxlength="80">
 
       <div id="f-guests" class="hidden mb-4"></div>
@@ -358,12 +418,14 @@
         <option>FD</option><option>FC</option><option>TD</option><option>Other</option>
       </select>
 
-      <label class="lbl">Promo code (optional)</label>
-      <div class="flex gap-2 mb-1">
-        <input id="f-promo" type="text" class="fld uppercase" placeholder="Enter code" maxlength="40">
-        <button id="promo-btn" class="btn-ghost px-5 text-[13px] whitespace-nowrap">Apply</button>
+      <div id="promo-wrap">
+        <label class="lbl">Promo code (optional)</label>
+        <div class="flex gap-2 mb-1">
+          <input id="f-promo" type="text" class="fld uppercase" placeholder="Enter code" maxlength="40">
+          <button id="promo-btn" class="btn-ghost px-5 text-[13px] whitespace-nowrap">Apply</button>
+        </div>
+        <p id="promo-msg" class="hidden text-[11.5px] font-semibold mb-3"></p>
       </div>
-      <p id="promo-msg" class="hidden text-[11.5px] font-semibold mb-3"></p>
 
       <label class="flex items-start gap-2.5 my-4 cursor-pointer">
         <input id="f-terms" type="checkbox" class="mt-0.5 w-4 h-4 accent-[var(--pink)] flex-shrink-0">
@@ -379,7 +441,7 @@
     <div id="co-step2" class="hidden p-5">
       <div class="text-center mb-4">
         <p class="text-[12px] text-[var(--muted)] mb-1">Amount payable</p>
-        <p id="co-total-2" class="text-[30px] font-black text-[var(--navy)] leading-none">₹0</p>
+        <p id="co-total-2" class="text-[30px] font-black text-[var(--navy)] leading-none">Free</p>
       </div>
 
       <div id="co-breakdown" class="bg-[#fafafa] border border-[var(--line)] rounded-lg p-3 mb-4 space-y-1.5 text-[12.5px]"></div>
@@ -414,7 +476,7 @@
       <svg class="w-7 h-7 text-[var(--green)]" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
     </div>
     <h3 class="text-[19px] font-bold text-[var(--navy)] mb-1">Booking placed</h3>
-    <p class="text-[12.5px] text-[var(--muted)] mb-5">Pending organiser verification.</p>
+    <p id="done-note" class="text-[12.5px] text-[var(--muted)] mb-5">Pending organiser verification.</p>
     <div class="bg-[#fafafa] border border-[var(--line)] rounded-lg p-4 mb-5">
       <p class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold mb-1">Booking ID</p>
       <p id="done-id" class="text-[15px] font-mono font-bold text-[var(--navy)] mb-3"></p>
@@ -425,17 +487,28 @@
   </div>
 </div>
 
+<!-- ══════════════ TICKET VIEW ══════════════ -->
+<div id="m-ticket" class="ovl">
+  <div class="w-full max-w-[440px]">
+    <div class="flex justify-end mb-2">
+      <button onclick="document.getElementById('m-ticket').classList.remove('open')"
+              class="w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 text-white text-lg leading-none border-0 cursor-pointer">✕</button>
+    </div>
+    <div id="ticket-view"></div>
+  </div>
+</div>
+
 <!-- ══════════════ HOW IT WORKS ══════════════ -->
 <div id="m-how" class="ovl">
   <div class="sheet p-6 max-w-[400px]">
     <h3 class="text-[16px] font-bold text-[var(--navy)] mb-4">How booking works</h3>
     <ol class="space-y-3 text-[12.5px] text-[var(--muted)] list-decimal pl-4 marker:text-[var(--pink)] marker:font-bold leading-snug">
       <li>Sign in with your <b>@nift.ac.in</b> email and verify it.</li>
+      <li>You can browse the seat map and sign in any time. Booking unlocks at the announced time — a countdown is shown on the seat page.</li>
       <li>Pick how many tickets you need (max <b>4 per student</b>), then choose your seats.</li>
-      <li>Fill in your details — guest names are required for entry.</li>
-      <li>Your seats are held for <b>5 minutes</b> while you pay via UPI.</li>
-      <li>Enter the UTR and upload a screenshot, then confirm.</li>
-      <li>An organiser verifies the payment; your ticket turns <b>Confirmed</b> in <b>My tickets</b>.</li>
+      <li>Enter a name for <b>every seat</b> you book — each person needs their own name on the ticket to get in.</li>
+      <li>Confirm. Your seats are held for <b>5 minutes</b> while you finish.</li>
+      <li>Your ticket appears under <b>My tickets</b> with a QR code — show it at the gate.</li>
     </ol>
     <div class="mt-5 pt-4 border-t border-[var(--line)]">
       <p class="text-[11.5px] text-[var(--muted)] leading-snug"><b class="text-[var(--navy)]">At the gate:</b> carry your NIFT ID. No outside food. No refunds or cancellations.</p>
@@ -473,7 +546,9 @@ const CLOUDINARY_PRESET = "movie_tickets";
 const MAX_SEATS = 4;
 const HOLD_MS   = 5 * 60 * 1000;
 const SEATS_PER_ROW = 30;
-const ROW_BLOCKS = [10, 10, 10];
+// Aisles fall after seat 4 and after seat 15 in every row, so the blocks are
+// 1-4, 5-15, 16-30.
+const ROW_BLOCKS = [4, 11, 15];
 
 // BookMyShow-style tiers. Rows farthest from the screen are the premium block.
 const TIERS = [
@@ -481,8 +556,25 @@ const TIERS = [
   { key: 'executive', label: 'EXECUTIVE', rows: ['C', 'D', 'E'] },
   { key: 'classic',   label: 'CLASSIC',   rows: ['F', 'G', 'H'] }
 ];
-const DEFAULT_PRICING = { premium: 25, executive: 25, classic: 25 };
-const DEFAULT_EVENT = { title: 'NIFT Movie Night', language: 'Hindi', format: '2D', venue: 'NIFT Auditorium', date: 'TBA', time: 'TBA' };
+// Entry is free by default; organisers can set per-tier prices from the admin panel.
+const DEFAULT_PRICING = { premium: 0, executive: 0, classic: 0 };
+const DEFAULT_EVENT = {
+  title: 'Shershaah', language: 'Hindi', format: '2D', venue: 'NIFT Auditorium',
+  date: 'Sat, 15 Aug', time: '10:00 PM', gateOpen: '9:30 PM', gateClose: '9:50 PM', posterUrl: ''
+};
+const DEFAULT_CLUB = {
+  name: 'APC Club', tagline: 'Presented by the APC Club',
+  points: ['Student-run, student-picked screenings', 'Free entry for every NIFT student', 'One night, one screen, one big room']
+};
+
+/* Ticket poster art. One image for the film, set from admin -> Event & pricing.
+   Until an organiser sets it, tickets show a plain gradient placeholder instead
+   of a broken image or artwork for the wrong movie.
+   NOTE: an externally-hosted URL displays fine, but a downloaded PNG can only
+   include it if that host allows cross-origin canvas reads. For a poster
+   guaranteed to appear in the download, drop the image into a `posters/`
+   folder in this repo and set the field to a relative path ('posters/1.jpg')
+   instead — same origin, so it always works. */
 
 const UPI_ACCOUNTS = [
   { upiId: 'chyasar2004-2@oksbi', payeeName: 'Yasar C H' },
@@ -495,7 +587,11 @@ let user = null;
 let seats = {};                 // live movieSeats
 let myBookings = {};            // live bookings/<uid>
 let pricing = { ...DEFAULT_PRICING };
+let club = { ...DEFAULT_CLUB };
 let bookingOpen = true;
+let opensAt = 0;                // epoch ms; booking is browse-only before this
+let countdownTimer = null;
+let posterUrl = '';             // ticket background art; empty = show the placeholder
 let selected = [];
 let wantCount = 2;
 let signUpMode = false;
@@ -509,6 +605,13 @@ let submitting = false;
 /* ────────── Helpers ────────── */
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+/* Everyone opens this page at the same moment — especially the second booking
+   unlocks — which lands as one simultaneous spike of reads on Firebase. Spread
+   the first fetch over a fraction of a second so the load arrives smeared out
+   instead of all at once. Short enough that nobody notices behind the spinner. */
+const STARTUP_JITTER_MS = 900;
+const jitter = () => new Promise(r => setTimeout(r, Math.random() * STARTUP_JITTER_MS));
 
 function toast(msg, kind = 'ok') {
   const t = $('toast');
@@ -530,6 +633,25 @@ const seatNum = seatId => parseInt(seatId.slice(1), 10);
 function subtotal() { return selected.reduce((s, id) => s + priceOf(id), 0); }
 function discountTotal() { return promo ? Math.min(subtotal(), promo.discount * selected.length) : 0; }
 function grandTotal() { return Math.max(0, subtotal() - discountTotal()); }
+const money = n => n > 0 ? '₹' + n : 'Free';
+
+/* Bookings open at a scheduled time. Until then the seat map and sign-in work,
+   but no seat can be claimed — the database rules enforce the same cutoff, so a
+   wrong clock on the device cannot get around it. */
+function beforeOpen() { return opensAt > 0 && Date.now() < opensAt; }
+function bookingLive() { return bookingOpen && !beforeOpen(); }
+
+function openTimeLabel() {
+  if (!opensAt) return '';
+  return new Date(opensAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+}
+function countdownLabel() {
+  const left = Math.max(0, opensAt - Date.now());
+  const h = Math.floor(left / 3600000);
+  const m = Math.floor(left / 60000) % 60;
+  const s = Math.floor(left / 1000) % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
 
 function isSeatFree(id) {
   const d = seats[id];
@@ -682,6 +804,7 @@ onAuthStateChanged(auth, u => {
 onValue(ref(db, 'settings'), snap => {
   const s = snap.val() || {};
   pricing = { ...DEFAULT_PRICING, ...(s.pricing || {}) };
+  club = { ...DEFAULT_CLUB, ...(s.club || {}), points: (s.club && s.club.points) || DEFAULT_CLUB.points };
   const ev = { ...DEFAULT_EVENT, ...(s.event || {}) };
   $('ev-title').textContent  = ev.title;
   $('ev-lang').textContent   = ev.language;
@@ -689,17 +812,65 @@ onValue(ref(db, 'settings'), snap => {
   $('ev-venue').textContent  = ev.venue;
   $('ev-date').textContent   = ev.date;
   $('ev-time').textContent   = ev.time;
+  $('ev-gate').textContent   = `${ev.gateOpen}–${ev.gateClose}`;
+  $('ev-gate-open').textContent  = ev.gateOpen;
+  $('ev-gate-close').textContent = ev.gateClose;
+  posterUrl = ev.posterUrl || '';
   document.title = ev.title + ' — Book Tickets';
+  renderClubIntro();
+  renderTickets();   // no-op unless My Tickets is the active view; poster may have just changed
 
   bookingOpen = s.bookingStatus !== 'closed';
+  opensAt = Number(s.bookingOpensAt || 0);
+
   $('closed-box').classList.toggle('hidden', bookingOpen);
   $('map-box').classList.toggle('hidden', !bookingOpen);
   $('sel-bar').style.display = bookingOpen ? '' : 'none';
-  if (!bookingOpen) { $('map-load').classList.add('hidden'); selected = []; updateBar(); }
+  if (!bookingOpen) { $('map-load').classList.add('hidden'); selected = []; }
+  refreshCountdown();
   renderMap();
+  updateBar();
 });
 
-onValue(ref(db, 'movieSeats'), snap => {
+function renderClubIntro() {
+  $('club-name').textContent = club.name;
+  $('club-tagline').textContent = club.tagline;
+  const box = $('club-points');
+  box.innerHTML = (club.points || []).map(pt => `
+    <span class="flex items-center gap-1.5 bg-white/12 rounded-full pl-2 pr-3 py-1 text-[11px] font-semibold">
+      <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+      ${esc(pt)}
+    </span>`).join('');
+}
+
+function refreshCountdown() {
+  const soon = bookingOpen && beforeOpen();
+  $('soon-box').classList.toggle('hidden', !soon);
+
+  if (soon) {
+    $('soon-time').textContent = openTimeLabel();
+    $('soon-count').textContent = countdownLabel();
+    if (!countdownTimer) {
+      countdownTimer = setInterval(() => {
+        if (!beforeOpen()) {          // the moment arrived
+          clearInterval(countdownTimer); countdownTimer = null;
+          refreshCountdown(); updateBar();
+          toast('Booking is now open — pick your seats.');
+          return;
+        }
+        $('soon-count').textContent = countdownLabel();
+        updateBar();
+      }, 1000);
+    }
+  } else if (countdownTimer) {
+    clearInterval(countdownTimer); countdownTimer = null;
+  }
+}
+
+// The seat map is by far the biggest payload, so it carries the jitter.
+(async () => {
+  await jitter();
+  onValue(ref(db, 'movieSeats'), snap => {
   seats = snap.val() || {};
   seatsBound = true;
   $('map-load').classList.add('hidden');
@@ -714,19 +885,23 @@ onValue(ref(db, 'movieSeats'), snap => {
   if (!heldSeats.length && selected.length > allowed) selected = selected.slice(0, allowed);
 
   renderMap(); updateBar(); renderTickets();
-}, err => {
-  $('map-load').classList.add('hidden');
-  toast('Could not load the seat map.', 'err');
-  console.warn('movieSeats:', err.message);
-});
+  }, err => {
+    $('map-load').classList.add('hidden');
+    toast('Could not load the seat map.', 'err');
+    console.warn('movieSeats:', err.message);
+  });
+})();
 
 function bindBookings() {
   if (bookingsBound || !user) return;
   bookingsBound = true;
-  onValue(ref(db, `bookings/${user.uid}`), snap => {
-    myBookings = snap.val() || {};
-    renderTickets();
-  }, err => console.warn('bookings:', err.message));
+  (async () => {
+    await jitter();
+    onValue(ref(db, `bookings/${user.uid}`), snap => {
+      myBookings = snap.val() || {};
+      renderTickets();
+    }, err => console.warn('bookings:', err.message));
+  })();
 }
 
 /* ────────── Seat count picker ────────── */
@@ -765,7 +940,7 @@ function renderMap() {
   TIERS.forEach(tier => {
     const head = document.createElement('div');
     head.className = 'cat-head';
-    head.innerHTML = `<span>${esc(tier.label)} — ₹${priceOfTier(tier.key)}</span>`;
+    head.innerHTML = `<span>${esc(tier.label)} — ${money(priceOfTier(tier.key))}</span>`;
     map.appendChild(head);
 
     tier.rows.forEach(row => map.appendChild(buildRow(row)));
@@ -823,7 +998,7 @@ function buildSeat(seatId, num) {
     el.classList.add('held'); el.disabled = true; el.title = 'Being booked by someone else';
   } else {
     if (selected.includes(seatId)) el.classList.add('sel');
-    el.title = `${seatId} · ₹${priceOf(seatId)}`;
+    el.title = `${seatId} · ${money(priceOf(seatId))}`;
     el.addEventListener('click', () => toggleSeat(seatId));
   }
   return el;
@@ -831,6 +1006,9 @@ function buildSeat(seatId, num) {
 
 function toggleSeat(seatId) {
   if (!bookingOpen) return toast('Bookings are closed.', 'err');
+  if (beforeOpen() && !selected.includes(seatId)) {
+    toast(`Booking opens at ${openTimeLabel()}. You can pick seats now and confirm then.`);
+  }
   if (heldSeats.length) return toast('Finish or cancel the current booking first.', 'err');
 
   if (selected.includes(seatId)) {
@@ -854,9 +1032,22 @@ function updateBar() {
   bar.classList.toggle('up', on);
   if (!selected.length) return;
 
-  const sorted = [...selected].sort((a, b) => a[0] === b[0] ? seatNum(a) - seatNum(b) : a[0].localeCompare(b[0]));
+  const sorted = sortSeats(selected);
   $('bar-seats').textContent = `${sorted.join(', ')}  ·  ${selected.length} ticket${selected.length > 1 ? 's' : ''}`;
-  $('bar-pay').textContent = `Pay ₹${grandTotal()}`;
+
+  const btn = $('bar-pay');
+  if (beforeOpen()) {
+    btn.disabled = true;
+    btn.textContent = `Opens in ${countdownLabel()}`;
+  } else {
+    btn.disabled = false;
+    const t = grandTotal();
+    btn.textContent = t > 0 ? `Pay ₹${t}` : 'Book now';
+  }
+}
+
+function sortSeats(list) {
+  return [...list].sort((a, b) => a[0] === b[0] ? seatNum(a) - seatNum(b) : a[0].localeCompare(b[0]));
 }
 
 /* ────────── Hold seats (atomic) ────────── */
@@ -939,10 +1130,13 @@ $('bar-pay').addEventListener('click', async () => {
 });
 
 function openCheckout() {
-  const sorted = [...selected].sort();
+  const sorted = sortSeats(selected);
   $('co-seats').textContent = sorted.join(', ');
-  $('co-total-1').textContent = '₹' + grandTotal();
+  $('co-total-1').textContent = money(grandTotal());
   $('co-title').textContent = 'Your details';
+  $('co-next').textContent = grandTotal() > 0 ? 'Continue to payment' : 'Confirm booking';
+  // A free show has nothing to discount.
+  $('promo-wrap').classList.toggle('hidden', subtotal() === 0);
   $('co-step1').classList.remove('hidden');
   $('co-step2').classList.add('hidden');
   $('f-email').value = user.email;
@@ -969,15 +1163,28 @@ $('co-back').addEventListener('click', () => {
   $('co-title').textContent = 'Your details';
 });
 
+/* Every seat needs a named attendee — the booker takes the first seat, and each
+   remaining seat gets its own name field labelled with that seat. */
 function buildGuestInputs() {
   const box = $('f-guests');
-  const n = selected.length - 1;
+  const seatsSorted = sortSeats(selected);
   box.innerHTML = '';
-  if (n <= 0) { box.classList.add('hidden'); return; }
+
+  $('f-name-label').textContent = seatsSorted.length > 1
+    ? `Your full name (seat ${seatsSorted[0]})`
+    : 'Your full name';
+
+  const rest = seatsSorted.slice(1);
+  if (!rest.length) { box.classList.add('hidden'); return; }
+
   box.classList.remove('hidden');
-  box.innerHTML = `<label class="lbl">Guest names (required for entry)</label>
-    <div class="space-y-2">${Array.from({ length: n }, (_, i) =>
-      `<input type="text" class="fld guest" maxlength="80" placeholder="Guest ${i + 1} full name">`).join('')}</div>`;
+  box.innerHTML =
+    `<label class="lbl">Everyone else attending (required for entry)</label>
+     <div class="space-y-2">${rest.map(seat =>
+       `<input type="text" class="fld guest" maxlength="80" data-seat="${esc(seat)}"
+               placeholder="Full name for seat ${esc(seat)}">`).join('')}</div>
+     <p class="text-[11px] text-[var(--muted)] mt-1.5">Each person must carry their own NIFT ID at the gate.</p>`;
+
   box.querySelectorAll('.guest').forEach(i => i.addEventListener('input', validateDetails));
 }
 
@@ -1030,7 +1237,7 @@ $('promo-btn').addEventListener('click', async () => {
     $('promo-btn').disabled = false;
   }
   msg.classList.remove('hidden');
-  $('co-total-1').textContent = '₹' + grandTotal();
+  $('co-total-1').textContent = money(grandTotal());
   updateBar();
 });
 
@@ -1039,6 +1246,14 @@ $('co-next').addEventListener('click', async () => {
   if (!validateDetails()) return;
 
   const amount = grandTotal();
+
+  // Nothing to pay: confirm straight away, no UPI, no UTR, no screenshot.
+  if (amount === 0) {
+    payment = { amount: 0, account: null };
+    await finalizeBooking({ amount: 0, btn: $('co-next'), busyLabel: 'Confirming…', idleLabel: 'Confirm booking' });
+    return;
+  }
+
   const account = UPI_ACCOUNTS[Math.floor(Math.random() * UPI_ACCOUNTS.length)];
   payment = { account, amount };
 
@@ -1050,7 +1265,7 @@ $('co-next').addEventListener('click', async () => {
   $('upi-name').textContent = account.payeeName;
   $('upi-id').textContent = account.upiId;
   $('upi-link').href = upi;
-  $('co-total-2').textContent = '₹' + amount;
+  $('co-total-2').textContent = money(amount);
 
   const rows = [];
   TIERS.forEach(t => {
@@ -1073,20 +1288,36 @@ $('co-submit').addEventListener('click', async () => {
   if (utr.length < 6) return toast('Enter the UTR / transaction ID from your UPI app.', 'err');
   if (!file) return toast('Upload a screenshot of the payment.', 'err');
   if (file.size > 8 * 1024 * 1024) return toast('Screenshot is too large (max 8 MB).', 'err');
+
+  await finalizeBooking({
+    amount: payment.amount,
+    utr,
+    file,
+    payeeUsed: payment.account?.payeeName,
+    btn: $('co-submit'),
+    busyLabel: 'Uploading screenshot…',
+    idleLabel: 'Confirm booking'
+  });
+});
+
+async function finalizeBooking({ amount, utr, file, payeeUsed, btn, busyLabel, idleLabel }) {
   if (!heldSeats.length) return toast('Your seat hold expired. Please start again.', 'err');
 
-  const btn = $('co-submit');
   submitting = true;
   stopTimer();
-  btn.disabled = true; btn.textContent = 'Uploading screenshot…';
+  btn.disabled = true; btn.textContent = busyLabel;
 
   try {
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('upload_preset', CLOUDINARY_PRESET);
-    const up = await fetch(CLOUDINARY_URL, { method: 'POST', body: fd });
-    const json = await up.json();
-    if (!json.secure_url) throw new Error('Screenshot upload failed.');
+    let screenshotUrl = null;
+    if (file) {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('upload_preset', CLOUDINARY_PRESET);
+      const up = await fetch(CLOUDINARY_URL, { method: 'POST', body: fd });
+      const json = await up.json();
+      if (!json.secure_url) throw new Error('Screenshot upload failed.');
+      screenshotUrl = json.secure_url;
+    }
 
     btn.textContent = 'Confirming…';
 
@@ -1105,10 +1336,10 @@ $('co-submit').addEventListener('click', async () => {
     }
 
     const ticketId = `NIFT-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 4096).toString(36).toUpperCase().padStart(3, '0')}`;
-    const seatList = [...heldSeats].sort();
+    const seatList = sortSeats(heldSeats);
     const guestNames = [...document.querySelectorAll('.guest')].map(i => i.value.trim());
 
-    await set(ref(db, `bookings/${user.uid}/${ticketId}`), {
+    const record = {
       ticketId,
       userId: user.uid,
       email: user.email,
@@ -1118,14 +1349,18 @@ $('co-submit').addEventListener('click', async () => {
       whatsapp: $('f-wa-same').checked ? $('f-phone').value.trim() : $('f-wa').value.trim(),
       studentId: $('f-sid').value.trim(),
       department: $('f-dept').value,
-      utr,
-      screenshotUrl: json.secure_url,
-      paidAmount: payment.amount,
-      payeeUsed: payment.account.payeeName,
+      paidAmount: amount,
       promoCode: promo ? promo.code : 'None',
       seats: seatList,
       createdAt: new Date().toISOString()
-    });
+    };
+    // Payment fields only exist on paid bookings — the rules reject a blank
+    // screenshotUrl, so they must be left off entirely when entry is free.
+    if (utr) record.utr = utr;
+    if (screenshotUrl) record.screenshotUrl = screenshotUrl;
+    if (payeeUsed) record.payeeUsed = payeeUsed;
+
+    await set(ref(db, `bookings/${user.uid}/${ticketId}`), record);
 
     const seatUpdate = {};
     seatList.forEach(id => {
@@ -1143,19 +1378,26 @@ $('co-submit').addEventListener('click', async () => {
     $('m-checkout').classList.remove('open');
     $('done-id').textContent = ticketId;
     $('done-seats').textContent = seatList.join(', ');
+    $('done-note').textContent = amount > 0
+      ? 'Pending organiser verification.'
+      : 'Free entry — your seats are confirmed.';
     $('m-done').classList.add('open');
     resetForm();
     renderMap(); updateBar();
 
   } catch (e) {
     console.warn('booking:', e.message);
-    toast(e.message || 'Could not complete the booking.', 'err');
+    // A permission error here means the database rules aren't live yet. Students
+    // can't fix that, so tell them plainly instead of showing raw Firebase text.
+    toast(/permission/i.test(e.message || '')
+      ? 'Booking is not set up yet — please tell the organisers (database rules not published).'
+      : (e.message || 'Could not complete the booking.'), 'err');
     startTimer();
   } finally {
     submitting = false;
-    btn.disabled = false; btn.textContent = 'Confirm booking';
+    btn.disabled = false; btn.textContent = idleLabel;
   }
-});
+}
 
 function resetForm() {
   ['f-name', 'f-phone', 'f-sid', 'f-wa', 'f-utr', 'f-promo'].forEach(id => $(id).value = '');
@@ -1194,10 +1436,13 @@ function renderTickets() {
     const liveSeats = (b.seats || []).filter(s => seats[s]?.ticketId === id && seats[s]?.status === 'occupied');
     const cancelled = liveSeats.length === 0;
     const anySeat = liveSeats[0] ? seats[liveSeats[0]] : null;
+    // A free ticket has no payment to verify, so it counts as confirmed on booking.
+    const free = Number(b.paidAmount || 0) === 0;
     const status = cancelled ? 'cancelled'
       : anySeat?.checkedIn ? 'checkedin'
       : anySeat?.verificationStatus === 'approved' ? 'confirmed'
-      : anySeat?.verificationStatus === 'rejected' ? 'rejected' : 'pending';
+      : anySeat?.verificationStatus === 'rejected' ? 'rejected'
+      : free ? 'confirmed' : 'pending';
 
     const badge = {
       confirmed: ['Confirmed',  'background:var(--green-soft);color:var(--green)'],
@@ -1213,38 +1458,7 @@ function renderTickets() {
     const card = document.createElement('div');
     card.className = 'tkt';
     card.id = 'tkt-' + id;
-    card.innerHTML = `
-      <div class="bg-[var(--slate)] text-white px-5 py-3 flex items-center justify-between">
-        <div class="min-w-0">
-          <p class="text-[14px] font-bold truncate">${esc($('ev-title').textContent)}</p>
-          <p class="text-[11px] text-white/60">${esc($('ev-venue').textContent)} · ${esc($('ev-date').textContent)} · ${esc($('ev-time').textContent)}</p>
-        </div>
-        <span class="chip flex-shrink-0" style="${badge[1]}">${badge[0]}</span>
-      </div>
-
-      <div class="p-5 flex gap-5 items-center">
-        <div class="flex-shrink-0 bg-white p-1.5 rounded border border-[var(--line)]">
-          <img class="qr-slot w-24 h-24" data-qr="${esc(`TICKET:${id}|SEATS:${shown.join(',')}`)}" alt="Ticket QR code">
-        </div>
-        <div class="min-w-0 flex-1">
-          <p class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold">Seats</p>
-          <p class="text-[20px] font-black text-[var(--navy)] leading-tight mb-2">${esc(shown.join(', ') || '—')}</p>
-          <p class="text-[11.5px] text-[var(--muted)]">Booking ID <span class="font-mono font-semibold text-[var(--navy)]">${esc(id)}</span></p>
-          <p class="text-[11.5px] text-[var(--muted)]">${esc(b.bookerName || '')}${(b.guestNames || []).length ? ' + ' + esc(b.guestNames.join(', ')) : ''}</p>
-        </div>
-      </div>
-
-      <div class="tkt-perf px-5 py-3 flex items-center justify-between bg-[#fbfbfb]">
-        <div>
-          <p class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold">Paid</p>
-          <p class="text-[14px] font-bold text-[var(--navy)]">₹${Number(b.paidAmount || 0)}${b.promoCode && b.promoCode !== 'None' ? ` <span class="text-[10px] font-semibold text-[var(--green)]">${esc(b.promoCode)}</span>` : ''}</p>
-        </div>
-        <div class="text-right">
-          <p class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold">Booked on</p>
-          <p class="text-[11.5px] font-semibold text-[var(--navy)]">${esc(when)}</p>
-        </div>
-        <button data-dl="${esc(id)}" data-html2canvas-ignore="true" class="btn-ghost px-3.5 py-1.5 text-[12px]">Save</button>
-      </div>`;
+    card.innerHTML = ticketMarkup({ id, b, shown, when, badge, free });
     list.appendChild(card);
   });
 
@@ -1258,13 +1472,112 @@ function renderTickets() {
   list.querySelectorAll('[data-dl]').forEach(btn => {
     btn.addEventListener('click', () => downloadTicket(btn.dataset.dl));
   });
+  list.querySelectorAll('[data-view]').forEach(btn => {
+    btn.addEventListener('click', () => viewTicket(btn.dataset.view));
+  });
 }
+
+/* The e-ticket itself — poster art behind the header, perforated stub below.
+   Same markup drives the list card and the full-screen view. */
+function ticketMarkup({ id, b, shown, when, badge, free }) {
+  const heroStyle = posterUrl ? `style="background-image:url('${esc(posterUrl)}')"` : '';
+  return `
+    <div class="tkt-hero${posterUrl ? '' : ' tkt-hero-placeholder'}" ${heroStyle}>
+      ${posterUrl ? '' : `<svg class="tkt-hero-mark" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h16M4 8a2 2 0 00-2 2v8a2 2 0 002 2h16a2 2 0 002-2v-8a2 2 0 00-2-2M4 8l2-4h12l2 4M9 8v12m6-12v12"/></svg>`}
+      <div class="tkt-hero-in px-5 py-4">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-[10px] uppercase tracking-[2px] text-white/60 font-bold mb-0.5">E-Ticket</p>
+            <p class="text-[19px] font-black text-white leading-tight truncate">${esc($('ev-title').textContent)}</p>
+            <p class="text-[11px] text-white/70 mt-0.5">${esc($('ev-lang').textContent)} · ${esc($('ev-format').textContent)}</p>
+          </div>
+          <span class="chip flex-shrink-0" style="${badge[1]}">${badge[0]}</span>
+        </div>
+        <div class="flex gap-5 mt-3.5">
+          <div>
+            <p class="text-[9px] uppercase tracking-wide text-white/50 font-bold">Venue</p>
+            <p class="text-[12px] font-semibold text-white">${esc($('ev-venue').textContent)}</p>
+          </div>
+          <div>
+            <p class="text-[9px] uppercase tracking-wide text-white/50 font-bold">Date</p>
+            <p class="text-[12px] font-semibold text-white">${esc($('ev-date').textContent)}</p>
+          </div>
+          <div>
+            <p class="text-[9px] uppercase tracking-wide text-white/50 font-bold">Show</p>
+            <p class="text-[12px] font-semibold text-white">${esc($('ev-time').textContent)}</p>
+          </div>
+          <div>
+            <p class="text-[9px] uppercase tracking-wide text-white/50 font-bold">Gate</p>
+            <p class="text-[12px] font-semibold text-white">${esc($('ev-gate-open').textContent)}–${esc($('ev-gate-close').textContent)}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="px-5 py-1.5 bg-[var(--amber-soft)] border-b border-[#f0dfae] text-[10.5px] text-[#8a6a12] font-semibold text-center">
+      Gates close at ${esc($('ev-gate-close').textContent)} — arrive on time.
+    </div>
+
+    <div class="p-5 flex gap-5 items-center bg-white">
+      <div class="flex-shrink-0 bg-white p-1.5 rounded border border-[var(--line)]">
+        <img class="qr-slot w-24 h-24" data-qr="${esc(`TICKET:${id}|SEATS:${shown.join(',')}`)}" alt="Ticket QR code">
+      </div>
+      <div class="min-w-0 flex-1">
+        <p class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold">Seats</p>
+        <p class="text-[20px] font-black text-[var(--navy)] leading-tight mb-2">${esc(shown.join(', ') || '—')}</p>
+        <p class="text-[11.5px] text-[var(--muted)]">Booking ID <span class="font-mono font-semibold text-[var(--navy)]">${esc(id)}</span></p>
+        <p class="text-[11.5px] text-[var(--muted)] leading-snug">${esc([b.bookerName || '', ...(b.guestNames || [])].filter(Boolean).join(', '))}</p>
+      </div>
+    </div>
+
+    <div class="tkt-perf px-5 py-3 flex items-center justify-between gap-3 bg-[#fbfbfb]">
+      <div>
+        <p class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold">${free ? 'Entry' : 'Paid'}</p>
+        <p class="text-[14px] font-bold text-[var(--navy)]">${money(Number(b.paidAmount || 0))}${b.promoCode && b.promoCode !== 'None' ? ` <span class="text-[10px] font-semibold text-[var(--green)]">${esc(b.promoCode)}</span>` : ''}</p>
+      </div>
+      <div>
+        <p class="text-[10px] uppercase tracking-wide text-[var(--muted)] font-bold">Booked on</p>
+        <p class="text-[11.5px] font-semibold text-[var(--navy)]">${esc(when)}</p>
+      </div>
+      <div class="flex gap-2" data-html2canvas-ignore="true">
+        <button data-view="${esc(id)}" class="btn-ghost px-3.5 py-1.5 text-[12px]">View</button>
+        <button data-dl="${esc(id)}" class="btn-pink px-3.5 py-1.5 text-[12px]">Download</button>
+      </div>
+    </div>`;
+}
+
+window.viewTicket = function (id) {
+  const src = $('tkt-' + id);
+  if (!src) return;
+  const box = $('ticket-view');
+  box.innerHTML = '';
+
+  const clone = src.cloneNode(true);
+  clone.id = 'tkt-big-' + id;
+  clone.style.maxWidth = '100%';
+  box.appendChild(clone);
+
+  // Cloned <img> keeps its src, but the QR was drawn after render — re-draw it.
+  clone.querySelectorAll('.qr-slot').forEach(img => {
+    QRCode.toDataURL(img.dataset.qr, { width: 320, margin: 1 })
+      .then(url => { img.src = url; }).catch(() => {});
+  });
+  clone.querySelectorAll('[data-view]').forEach(b => b.remove());
+  clone.querySelectorAll('[data-dl]').forEach(b => {
+    b.textContent = 'Download';
+    b.addEventListener('click', () => downloadTicket(id));
+  });
+
+  $('m-ticket').classList.add('open');
+};
 
 function downloadTicket(id) {
   const el = $('tkt-' + id);
   if (!el) return;
   toast('Generating image…');
-  html2canvas(el, { backgroundColor: '#ffffff', scale: 2 })
+  // useCORS lets the poster into the PNG when its host allows it; if it doesn't,
+  // html2canvas simply skips the artwork and the rest of the ticket still saves.
+  html2canvas(el, { backgroundColor: '#ffffff', scale: 2, useCORS: true, imageTimeout: 6000 })
     .then(canvas => {
       const a = document.createElement('a');
       a.download = `NIFT_Ticket_${id}.png`;
