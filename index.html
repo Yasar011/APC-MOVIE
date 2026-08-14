@@ -579,6 +579,9 @@ const HOLD_MS   = 5 * 60 * 1000;
 const SEATS_PER_ROW = 30;
 // One aisle per row, after seat 15: blocks are 1-15, 16-30.
 const ROW_BLOCKS = [15, 15];
+// Draw each row right-to-left, so seat 1 is on the right-hand side of the map.
+// Flip to false to number left-to-right instead.
+const MIRROR_ROWS = true;
 
 // BookMyShow-style tiers. Rows farthest from the screen are the premium block.
 const TIERS = [
@@ -1080,17 +1083,30 @@ function buildRow(row) {
   const blocks = document.createElement('div');
   blocks.className = 'sblocks';
 
+  // Work out the seat numbers block by block first, so the whole row can be
+  // mirrored as a unit when needed.
+  const groups = [];
   let n = 0;
-  ROW_BLOCKS.forEach((size, bi) => {
+  ROW_BLOCKS.forEach(size => {
+    const grp = [];
+    for (let i = 0; i < size && n < SEATS_PER_ROW; i++) { grp.push(++n); }
+    groups.push(grp);
+  });
+
+  // Mirrored: seat 1 sits on the right and numbers count leftwards, matching the
+  // hall as the audience faces the screen. Seat IDs are untouched -- A1 is still
+  // A1 in the database, only its position on screen flips.
+  const layout = MIRROR_ROWS
+    ? groups.slice().reverse().map(g => g.slice().reverse())
+    : groups;
+
+  layout.forEach((grp, bi) => {
     if (bi > 0) {
       const gap = document.createElement('div');
       gap.className = 'sgap';
       blocks.appendChild(gap);
     }
-    for (let i = 0; i < size && n < SEATS_PER_ROW; i++) {
-      n++;
-      blocks.appendChild(buildSeat(row + n, n));
-    }
+    grp.forEach(num => blocks.appendChild(buildSeat(row + num, num)));
   });
 
   wrap.appendChild(blocks);
