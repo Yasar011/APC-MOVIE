@@ -546,9 +546,8 @@ const CLOUDINARY_PRESET = "movie_tickets";
 const MAX_SEATS = 4;
 const HOLD_MS   = 5 * 60 * 1000;
 const SEATS_PER_ROW = 30;
-// Aisles fall after seat 4 and after seat 15 in every row, so the blocks are
-// 1-4, 5-15, 16-30.
-const ROW_BLOCKS = [4, 11, 15];
+// One aisle per row, after seat 15: blocks are 1-15, 16-30.
+const ROW_BLOCKS = [15, 15];
 
 // BookMyShow-style tiers. Rows farthest from the screen are the premium block.
 const TIERS = [
