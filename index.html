@@ -159,6 +159,23 @@
   </div>
 </header>
 
+<!-- Club intro — persistent across every view, not just seat selection, so it's
+     the first thing a visitor sees whether they land on login, seats or tickets. -->
+<div class="text-white" style="background:linear-gradient(100deg,var(--navy) 0%,#3a2d55 60%,var(--pink) 145%)">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0">
+        <svg class="w-[18px] h-[18px] text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h16M4 8a2 2 0 00-2 2v8a2 2 0 002 2h16a2 2 0 002-2v-8a2 2 0 00-2-2M4 8l2-4h12l2 4M9 8v12m6-12v12"/></svg>
+      </div>
+      <div>
+        <p id="club-name" class="text-[13.5px] font-black leading-none">APC Club</p>
+        <p id="club-tagline" class="text-[11px] text-white/70 mt-1">Presented by the APC Club</p>
+      </div>
+    </div>
+    <div id="club-points" class="flex flex-wrap gap-2"></div>
+  </div>
+</div>
+
 <!-- ══════════════ LOGIN ══════════════ -->
 <section id="view-login" class="view">
   <div class="max-w-md mx-auto px-4 py-12">
@@ -245,22 +262,6 @@
   <div class="bg-[var(--amber-soft)] border-b border-[#f0dfae]">
     <div class="max-w-6xl mx-auto px-4 py-1.5 text-[11.5px] text-[#8a6a12] font-semibold text-center">
       ⏰ Gates open <span id="ev-gate-open">9:30 PM</span> and close <span id="ev-gate-close">9:50 PM</span> — be on time.
-    </div>
-  </div>
-
-  <!-- Club intro -->
-  <div class="text-white" style="background:linear-gradient(100deg,var(--navy) 0%,#3a2d55 60%,var(--pink) 145%)">
-    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
-      <div class="flex items-center gap-2.5">
-        <div class="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0">
-          <svg class="w-[18px] h-[18px] text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h16M4 8a2 2 0 00-2 2v8a2 2 0 002 2h16a2 2 0 002-2v-8a2 2 0 00-2-2M4 8l2-4h12l2 4M9 8v12m6-12v12"/></svg>
-        </div>
-        <div>
-          <p id="club-name" class="text-[13.5px] font-black leading-none">APC Club</p>
-          <p id="club-tagline" class="text-[11px] text-white/70 mt-1">Presented by the APC Club</p>
-        </div>
-      </div>
-      <div id="club-points" class="flex flex-wrap gap-2"></div>
     </div>
   </div>
 
