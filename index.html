@@ -6,7 +6,11 @@
   <title>NIFT Movie Night — Book Tickets</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+  <!-- Served from this repo, not a CDN. The qrcode npm package advertises a
+       build/ folder that isn't actually in the published tarball, so every
+       .../qrcode@1.5.4/build/qrcode.min.js CDN URL 404s and the QR silently
+       never rendered. Same-origin also means no blocked-CDN failure mode. -->
+  <script src="vendor/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
   <style>
@@ -661,10 +665,9 @@ function loadScriptOnce(url) {
     document.head.appendChild(s);
   });
 }
-const QR_LIB_URLS = [
-  'https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js',
-  'https://unpkg.com/qrcode@1.5.4/build/qrcode.min.js'
-];
+// Local copy only — see the note on the <script> tag: there is no working
+// plain-script CDN URL for this package, which is what broke the QR before.
+const QR_LIB_URLS = ['vendor/qrcode.min.js'];
 let qrLibPromise = null;
 function ensureQRCode() {
   if (window.QRCode) return Promise.resolve(true);
@@ -682,17 +685,23 @@ function ensureQRCode() {
 /* Fills a ticket's QR slot, or — if every CDN failed — replaces it with the
    booking ID in plain text so the ticket still works at the gate: a volunteer
    can look it up manually instead of the guest hitting a dead end. */
+function qrFallbackInto(img) {
+  const box = img.closest('div');
+  if (box) box.innerHTML = `<div class="w-24 h-24 flex flex-col items-center justify-center text-center px-1">
+    <p class="text-[9px] text-[var(--muted)] font-semibold leading-tight">QR unavailable<br>show ID at gate</p>
+  </div>`;
+}
+
 async function renderTicketQr(img) {
-  const ok = await ensureQRCode();
-  if (!ok) {
-    const box = img.closest('div');
-    if (box) box.innerHTML = `<div class="w-24 h-24 flex flex-col items-center justify-center text-center px-1">
-      <p class="text-[9px] text-[var(--muted)] font-semibold leading-tight">QR unavailable<br>show ID at gate</p>
-    </div>`;
-    return;
+  if (!(await ensureQRCode())) { qrFallbackInto(img); return; }
+  try {
+    img.src = await QRCode.toDataURL(img.dataset.qr, { width: 240, margin: 1 });
+  } catch (e) {
+    // Leaving the <img> with no src is what produced the broken-image icon on
+    // live tickets. Always land on the readable fallback instead.
+    console.warn('qr render:', e.message);
+    qrFallbackInto(img);
   }
-  try { img.src = await QRCode.toDataURL(img.dataset.qr, { width: 240, margin: 1 }); }
-  catch (e) { console.warn('qr render:', e.message); }
 }
 
 /* Same CDN-fallback treatment for the ticket-download tool. */
